@@ -2,7 +2,7 @@
 ### Get affordances by location
 Make a GET request to the following URL:
 ```
-https://affordanceaware.herokuapp.com/conditions/<latitude>/<longitude>
+https://affordanceaware.herokuapp.com/location_tags/<latitude>/<longitude>
 ```
 
 pip freeze > requirements.txt
@@ -31,7 +31,7 @@ Supported location types include:
 
 Example query while at a coffee shop in the evening:
 ```sh
-$ curl -i http://0.0.0.0:5000/conditions/42.0582565/-87.6841178
+$ curl -i http://0.0.0.0:5000/location_tags/42.0582565/-87.6841178
 ```
 ```
 {
