@@ -18,7 +18,7 @@ YOUR_API_KEY = 'AIzaSyDBghn4IdWKYc8YC2b2N_xYf5eaouqWvtg'
 google_places = GooglePlaces(YOUR_API_KEY)
 
 app = Flask (__name__)
-CORS(app)
+cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 
 yelp_auth = auth = Oauth1Authenticator(
