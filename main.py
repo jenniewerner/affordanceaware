@@ -1,5 +1,4 @@
 from flask import Flask, jsonify
-import pyrebase
 import math
 import json
 import uuid
@@ -40,8 +39,6 @@ firebase_config = {
 }
 
 
-firebase = pyrebase.initialize_app(firebase_config)
-db = firebase.database()
 @app.route('/conditions/<string:lat>/<string:lon>', methods=['GET'])
 def get_conditions(lat, lon):
     return []
@@ -224,4 +221,4 @@ def hello():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=int(environ.get("PORT", 5000)), host='0.0.0.0')
+    app.run(debug=False, port=int(environ.get("PORT", 5000)), host='0.0.0.0')
