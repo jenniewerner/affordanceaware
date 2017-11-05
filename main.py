@@ -12,13 +12,15 @@ from os import environ
 from googleplaces import GooglePlaces, types, lang
 from timezonefinder import TimezoneFinder
 from geopy.distance import vincenty
-
+from flask_cors import CORS
 
 YOUR_API_KEY = 'AIzaSyDBghn4IdWKYc8YC2b2N_xYf5eaouqWvtg'
 
 google_places = GooglePlaces(YOUR_API_KEY)
 
 app = Flask (__name__)
+CORS(app)
+
 
 yelp_auth = auth = Oauth1Authenticator(
     consumer_key = environ.get("YELP_KEY"),
