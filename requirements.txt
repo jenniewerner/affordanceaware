@@ -1,4 +1,4 @@
-utifulSoup==3.2.1
+BeautifulSoup==3.2.1
 beautifulsoup4==4.6.0
 click==6.6
 configparser==3.5.0
