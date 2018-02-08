@@ -162,10 +162,11 @@ def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):
         return "nighttime"
 
 
-def get_local_time(current_in_utc, curr_lat, curr_lon):
+def get_local_time(curr_lat, curr_lon):
+    """ given a location, find the current local time in that time zone """
     tf = TimezoneFinder()
     tz = timezone(tf.timezone_at(lng=curr_lon, lat=curr_lat))
-    current_local = current_in_utc.replace(tzinfo=tz)
+    current_local = datetime.datetime.now(tz)
     return current_local
 
 
@@ -197,7 +198,7 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
     current_in_utc = datetime.datetime.now().replace(tzinfo=utc)
     kv[period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc)] = True
 
-    current_local = get_local_time(current_in_utc, curr_lat, curr_lon)
+    current_local = get_local_time(curr_lat, curr_lon)
     kv["hour"] = current_local.hour
     kv["minute"] = current_local.minute
     kv[current_local.tzinfo.zone] = True
