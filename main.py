@@ -199,6 +199,7 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
     current_local = get_local_time(current_in_utc, curr_lat, curr_lon)
     kv["hour"] = current_local.hour
     kv["minute"] = current_local.minute
+    kv[current_local.tzinfo.zone] = True
     days_of_the_week = ["monday", "tuesday", "wednesday", "thursday", "friday",
                         "saturday", "sunday"]
     kv[days_of_the_week[current_local.weekday()]] = True  # "wednesday": True
@@ -275,4 +276,4 @@ def hello():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=int(environ.get("PORT", 5000)), host='0.0.0.0')
+    app.run(debug=False, port=int(environ.get("PORT", 5000)), host='0.0.0.0')
