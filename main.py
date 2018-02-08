@@ -98,6 +98,7 @@ def get_current_conditions(lat, lon):
 def get_current_conditions_as_keyvalues(lat, lon):
     curr_conditions = {}
     curr_conditions.update(get_weather_time_keyvalues(lat, lon))
+    curr_conditions.update(yelp_api_keyvalues(lat, lon))
     curr_conditions = {k.lower(): v for (k, v) in curr_conditions.iteritems()}
     return curr_conditions
 
@@ -137,7 +138,6 @@ def local_testing_spots(lat, lon):
             print dist
             close_locations.append(loc.keys()[0])
     return close_locations
-
 
 
 def make_weather_request(curr_lat, curr_lon):
@@ -243,6 +243,11 @@ def yelp_api(lat, lon):
         info = info + categories + [name]
         print info
     return info
+
+
+def yelp_api_keyvalues(lat, lon):
+    return {key: True for key in yelp_api(lat, lon)}
+
 
 @app.route('/test_locations/<string:lat>/<string:lon>', methods=['GET'])
 def test_yelp(lat, lon):
