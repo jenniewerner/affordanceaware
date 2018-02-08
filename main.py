@@ -85,7 +85,7 @@ def get_search(cat):
 def get_current_conditions(lat, lon):
     current_conditions = []
     current_conditions += get_weather(lat, lon)
-    current_conditions += yelp_api(lat, lon)
+    current_conditions += yelp_api(lat, lon, category_type='alias')
     current_conditions += local_testing_spots(lat, lon)
     #current_conditions += google_api(lat, lon)
     current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
@@ -99,7 +99,8 @@ def get_current_conditions_as_keyvalues(lat, lon):
     curr_conditions = {}
     curr_conditions.update(get_weather_time_keyvalues(lat, lon))
     curr_conditions.update(yelp_api_keyvalues(lat, lon))
-    curr_conditions = {k.lower(): v for (k, v) in curr_conditions.iteritems()}
+    curr_conditions = {transform_name_to_variable(k): v
+                       for (k, v) in curr_conditions.iteritems()}
     return curr_conditions
 
 
@@ -218,7 +219,12 @@ def google_api(lat, lon):
     return info
 
 #@app.route('/yelp', methods=['GET'])
-def yelp_api(lat, lon):
+def yelp_api(lat, lon, category_type):
+    """Returns list of strings indicating the name of businesses and categories around the lat, lon
+    lat: float
+    lon: float
+    type: "alias" or "name", determines if 'Vietnamese' vs 'vietnamese' will be returned
+    """
     print "inside yelp!"
     tags = []
     affordances = []
@@ -235,18 +241,34 @@ def yelp_api(lat, lon):
     info = []
     if not resp.businesses:
         return []
+    type_idx = {'name': 0, 'alias': 1}
     for b in resp.businesses:
         name = b.name
-        print name
-        categories = [c[1] for c in b.categories]
-        print categories
+        categories = [c[type_idx[category_type]] for c in b.categories]
         info = info + categories + [name]
-        print info
     return info
 
 
-def yelp_api_keyvalues(lat, lon):
-    return {key: True for key in yelp_api(lat, lon)}
+def transform_name_to_variable(category_name):
+    """ this is neccessary to get the category names to align with the variables
+    that are created in affinder
+    """
+    return (category_name.replace('/', '_')
+                         .replace(' ', '_')
+                         .replace('&', '_')
+                         .replace('\'', '_')
+                         .lower())
+
+
+def test_transform_name_to_variable():
+    assert transform_name_to_variable('Vietnamese') == 'vietnamese'
+    assert transform_name_to_variable('ATV Rentals/Tours') == 'atv_rentals_tours'
+    assert transform_name_to_variable('Hunting & Fishing Supplies') == 'hunting___fishing_supplies'
+    assert transform_name_to_variable("May's Vietnamese Restaurant") == 'may_s_vietnamese_restaurant'
+
+
+def yelp_api_keyvalues(lat, lon, category_type='name'):
+    return {key: True for key in yelp_api(lat, lon, category_type)}
 
 
 @app.route('/test_locations/<string:lat>/<string:lon>', methods=['GET'])
