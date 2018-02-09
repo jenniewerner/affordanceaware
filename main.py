@@ -43,12 +43,22 @@ firebase_config = {
 def get_conditions(lat, lon):
     return []
 
+
 @app.route('/location_tags/<string:lat>/<string:lon>', methods=['GET'])
 def get_location_tags(lat, lon):
     lat = float(lat)
     lon = float(lon)
     conditions = get_current_conditions(lat, lon)
     return jsonify(conditions)
+
+
+@app.route('/location_keyvalues/<string:lat>/<string:lon>', methods=['GET'])
+def get_location_keyvalues(lat, lon):
+    lat = float(lat)
+    lon = float(lon)
+    conditions = get_current_conditions_as_keyvalues(lat, lon)
+    return jsonify(conditions)
+
 
 @app.route('/search/<string:cat>', methods=['GET'])
 def get_search(cat):
@@ -75,7 +85,7 @@ def get_search(cat):
 def get_current_conditions(lat, lon):
     current_conditions = []
     current_conditions += get_weather(lat, lon)
-    current_conditions += yelp_api(lat, lon)
+    current_conditions += yelp_api(lat, lon, category_type='alias')
     current_conditions += local_testing_spots(lat, lon)
     #current_conditions += google_api(lat, lon)
     current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
@@ -83,6 +93,16 @@ def get_current_conditions(lat, lon):
     get_objects(current_conditions)
     print current_conditions
     return current_conditions
+
+
+def get_current_conditions_as_keyvalues(lat, lon):
+    curr_conditions = {}
+    curr_conditions.update(get_weather_time_keyvalues(lat, lon))
+    curr_conditions.update(yelp_api_keyvalues(lat, lon))
+    curr_conditions = {transform_name_to_variable(k): v
+                       for (k, v) in curr_conditions.iteritems()}
+    return curr_conditions
+
 
 
 def get_objects(conditions):
@@ -121,11 +141,37 @@ def local_testing_spots(lat, lon):
     return close_locations
 
 
+def make_weather_request(curr_lat, curr_lon):
+    url = "http://api.openweathermap.org/data/2.5/weather?lat=" + str(curr_lat) + "&lon=" + str(curr_lon) + "&appid=" + WEATHER_API_KEY
+    response = (requests.get(url)).json()
+    return response
+
+
+def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):
+    """ return sunset, sunrise, daytime, or nighttime given values in utc """
+    if (abs(sunset_in_utc - current_in_utc) <= datetime.timedelta(minutes=25)):
+        return "sunset"
+
+    if (abs(sunrise_in_utc - current_in_utc) <= datetime.timedelta(minutes=25)):
+        return "sunrise"
+
+    if sunset_in_utc > current_in_utc and sunrise_in_utc < current_in_utc:
+        return "daytime"
+
+    if sunset_in_utc < current_in_utc or sunrise_in_utc > current_in_utc:
+        return "nighttime"
+
+
+def get_local_time(curr_lat, curr_lon):
+    """ given a location, find the current local time in that time zone """
+    tf = TimezoneFinder()
+    tz = timezone(tf.timezone_at(lng=curr_lon, lat=curr_lat))
+    current_local = datetime.datetime.now(tz)
+    return current_local
 
 
 def get_weather(curr_lat, curr_lon):
-    url = "http://api.openweathermap.org/data/2.5/weather?lat=" + str(curr_lat) + "&lon=" + str(curr_lon) + "&appid=" + WEATHER_API_KEY
-    response = (requests.get(url)).json()
+    response = make_weather_request(curr_lat, curr_lon)
     weather = response["weather"][0]["main"]
     sunset = datetime.datetime.fromtimestamp(response["sys"]["sunset"])
     sunrise = datetime.datetime.fromtimestamp(response["sys"]["sunrise"])
@@ -134,23 +180,34 @@ def get_weather(curr_lat, curr_lon):
     sunrise_in_utc = sunrise.replace(tzinfo=utc)
     current_in_utc = datetime.datetime.now().replace(tzinfo=utc)
 
-    tf = TimezoneFinder()
-    tz = timezone(tf.timezone_at(lng=curr_lon, lat=curr_lat))
-    current_local = current_in_utc.replace(tzinfo=tz)
+    return [weather, period_of_day(current_in_utc, sunrise_in_utc,
+                                   sunset_in_utc)]
 
-    if(abs(sunset_in_utc - current_in_utc) <= datetime.timedelta(minutes = 25)):
-        return [weather, "SUNSET"]#, current_in_utc, ["sunset", sunset_in_utc]]
 
-    if(abs(sunrise_in_utc - current_in_utc) <= datetime.timedelta(minutes = 25)):
-        return [weather, "SUNRISE"]#, current_in_utc, ["sunset", sunset_in_utc]]
+def get_weather_time_keyvalues(curr_lat, curr_lon):
+    response = make_weather_request(curr_lat, curr_lon)
 
-    if sunset_in_utc >  current_in_utc and sunrise_in_utc < current_in_utc:
-        return [weather, "DAYTIME"]#, current_in_utc, ["sunset", sunset_in_utc]]
+    weather_tags_list = [weather["main"] for weather in response['weather']]
+    kv = {weather_key: True for weather_key in weather_tags_list}
 
-    if sunset_in_utc <  current_in_utc or sunrise_in_utc > current_in_utc:
-        return [weather, "NIGHTTIME"]#, current_in_utc, ["sunset", sunset_in_utc]]
+    sunset = datetime.datetime.fromtimestamp(response["sys"]["sunset"])
+    sunrise = datetime.datetime.fromtimestamp(response["sys"]["sunrise"])
 
-    return []
+    sunset_in_utc = sunset.replace(tzinfo=utc)
+    sunrise_in_utc = sunrise.replace(tzinfo=utc)
+    current_in_utc = datetime.datetime.now().replace(tzinfo=utc)
+    kv[period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc)] = True
+
+    current_local = get_local_time(curr_lat, curr_lon)
+    kv["hour"] = current_local.hour
+    kv["minute"] = current_local.minute
+    kv[current_local.tzinfo.zone] = True
+    days_of_the_week = ["monday", "tuesday", "wednesday", "thursday", "friday",
+                        "saturday", "sunday"]
+    kv[days_of_the_week[current_local.weekday()]] = True  # "wednesday": True
+
+    return kv
+
 
 def google_api(lat, lon):
     query_result = google_places.nearby_search(lat_lng={"lat":lat, "lng":lon}, radius=20)
@@ -163,7 +220,12 @@ def google_api(lat, lon):
     return info
 
 #@app.route('/yelp', methods=['GET'])
-def yelp_api(lat, lon):
+def yelp_api(lat, lon, category_type):
+    """Returns list of strings indicating the name of businesses and categories around the lat, lon
+    lat: float
+    lon: float
+    type: "alias" or "name", determines if 'Vietnamese' vs 'vietnamese' will be returned
+    """
     print "inside yelp!"
     tags = []
     affordances = []
@@ -180,14 +242,35 @@ def yelp_api(lat, lon):
     info = []
     if not resp.businesses:
         return []
+    type_idx = {'name': 0, 'alias': 1}
     for b in resp.businesses:
         name = b.name
-        print name
-        categories = [c[1] for c in b.categories]
-        print categories
+        categories = [c[type_idx[category_type]] for c in b.categories]
         info = info + categories + [name]
-        print info
     return info
+
+
+def transform_name_to_variable(category_name):
+    """ this is neccessary to get the category names to align with the variables
+    that are created in affinder
+    """
+    return (category_name.replace('/', '_')
+                         .replace(' ', '_')
+                         .replace('&', '_')
+                         .replace('\'', '_')
+                         .lower())
+
+
+def test_transform_name_to_variable():
+    assert transform_name_to_variable('Vietnamese') == 'vietnamese'
+    assert transform_name_to_variable('ATV Rentals/Tours') == 'atv_rentals_tours'
+    assert transform_name_to_variable('Hunting & Fishing Supplies') == 'hunting___fishing_supplies'
+    assert transform_name_to_variable("May's Vietnamese Restaurant") == 'may_s_vietnamese_restaurant'
+
+
+def yelp_api_keyvalues(lat, lon, category_type='name'):
+    return {key: True for key in yelp_api(lat, lon, category_type)}
+
 
 @app.route('/test_locations/<string:lat>/<string:lon>', methods=['GET'])
 def test_yelp(lat, lon):
