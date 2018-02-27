@@ -201,6 +201,8 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
     current_local = get_local_time(curr_lat, curr_lon)
     kv["hour"] = current_local.hour
     kv["minute"] = current_local.minute
+    kv["sunset_time"] = sunset
+    kv["sunset_time_minutes"] = sunset.minute
     kv[current_local.tzinfo.zone] = True
     days_of_the_week = ["monday", "tuesday", "wednesday", "thursday", "friday",
                         "saturday", "sunday"]
@@ -219,7 +221,7 @@ def google_api(lat, lon):
 
     return info
 
-#@app.route('/yelp', methods=['GET'])
+@app.route('/yelp/<string:lat>/<string:lon>', methods=['GET'])
 def yelp_api(lat, lon, category_type):
     """Returns list of strings indicating the name of businesses and categories around the lat, lon
     lat: float
@@ -234,19 +236,44 @@ def yelp_api(lat, lon, category_type):
     params = {
     	"radius_filter" : 40,
     	"limit" : 3,
-        "sort" : 1, #sort by distance
+        "sort_by" : "distance", #sort by distance
     	"open_now" : True,
     }
     resp = yelp_client.search_by_coordinates(lat, lon, **params)
     print resp
     info = []
     if not resp.businesses:
-        return []
+        print "no businesses"
     type_idx = {'name': 0, 'alias': 1}
     for b in resp.businesses:
         name = b.name
+        print name
+        print b.distance
         categories = [c[type_idx[category_type]] for c in b.categories]
         info = info + categories + [name]
+
+    #add grocery stores
+    params = {
+        "radius_filter" : 40,
+        "limit" : 3,
+        "sort_by" : "distance", #sort by distance
+        "open_now" : True,
+        "term": "grocery"
+    }
+    resp = yelp_client.search_by_coordinates(lat, lon, **params)
+    print resp
+    info = []
+    if not resp.businesses:
+        print "no businesses"
+    type_idx = {'name': 0, 'alias': 1}
+    for b in resp.businesses:
+        name = b.name
+        print name
+        print b.distance
+        if( b.distance < 40 ):
+            categories = [c[type_idx[category_type]] for c in b.categories]
+            info = info + categories + [name]
+
     return info
 
 
