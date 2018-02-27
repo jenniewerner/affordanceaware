@@ -240,6 +240,7 @@ def yelp_api(lat, lon, category_type):
     	"open_now" : True,
     }
     resp = yelp_client.search_by_coordinates(lat, lon, **params)
+    print "first pass"
     print resp
     info = []
     if not resp.businesses:
@@ -253,27 +254,29 @@ def yelp_api(lat, lon, category_type):
         info = info + categories + [name]
 
     #add grocery stores
-    params = {
+    params_grocery = {
         "radius_filter" : 40,
         "limit" : 3,
         "sort_by" : "distance", #sort by distance
         "open_now" : True,
         "term": "grocery"
     }
-    resp = yelp_client.search_by_coordinates(lat, lon, **params)
-    print resp
-    info = []
-    if not resp.businesses:
+    resp_grocery = yelp_client.search_by_coordinates(lat, lon, **params_grocery)
+    print "second pass"
+    print resp_grocery
+    if not resp_grocery.businesses:
         print "no businesses"
+        return info
     type_idx = {'name': 0, 'alias': 1}
-    for b in resp.businesses:
+    for b in resp_grocery.businesses:
         name = b.name
         print name
         print b.distance
         if( b.distance < 40 ):
+            print "adding" + name
             categories = [c[type_idx[category_type]] for c in b.categories]
             info = info + categories + [name]
-
+    print jsonify(info)
     return info
 
 
@@ -331,4 +334,4 @@ def hello():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, port=int(environ.get("PORT", 5000)), host='0.0.0.0')
+    app.run(debug=True, port=int(environ.get("PORT", 5000)), host='0.0.0.0')
