@@ -201,8 +201,8 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
     current_local = get_local_time(curr_lat, curr_lon)
     kv["hour"] = current_local.hour
     kv["minute"] = current_local.minute
-    # kv["sunset_time"] = sunset
-    # kv["sunset_time_minutes"] = sunset.minute
+    #kv["sunset_time"] = sunset
+    kv["sunset_time_minutes"] = sunset.minute
     kv[current_local.tzinfo.zone] = True
     days_of_the_week = ["monday", "tuesday", "wednesday", "thursday", "friday",
                         "saturday", "sunday"]
