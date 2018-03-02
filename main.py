@@ -209,7 +209,7 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
 
         if(abs(sunset_in_utc - forcast_dt) <= datetime.timedelta(hours=3)):
             if(sunset_in_utc.weekday() == forcast_dt.weekday()):
-                kv["sunset_predicted_weather"] = prediction["weather"][0]["main"].lower()
+                kv["sunset_predicted_weather"] = "\"" + prediction["weather"][0]["main"].lower() + "\""
                 break
 
     current_local = get_local_time(curr_lat, curr_lon)
@@ -234,6 +234,28 @@ def google_api(lat, lon):
             info += [place.name] + place.types
 
     return info
+
+def yelp_search(lat, lon, term, category_type):
+    info = []
+    params = {
+        "radius_filter" : 40,
+        "limit" : 3,
+        "sort_by" : "distance", #sort by distance
+        "open_now" : True,
+        "term": term
+    }
+    resp = yelp_client.search_by_coordinates(lat, lon, **params)
+    if not resp.businesses:
+        return []
+    type_idx = {'name': 0, 'alias': 1}
+    for b in resp.businesses:
+        name = b.name
+        if( b.distance < 40 ):
+            print "adding" + name
+            categories = [c[type_idx[category_type]] for c in b.categories]
+            info = info + categories + [name]
+    return info
+
 
 @app.route('/yelp/<string:lat>/<string:lon>', methods=['GET'])
 def yelp_api(lat, lon, category_type):
@@ -267,29 +289,9 @@ def yelp_api(lat, lon, category_type):
         categories = [c[type_idx[category_type]] for c in b.categories]
         info = info + categories + [name]
 
-    #add grocery stores
-    params_grocery = {
-        "radius_filter" : 40,
-        "limit" : 3,
-        "sort_by" : "distance", #sort by distance
-        "open_now" : True,
-        "term": "grocery"
-    }
-    resp_grocery = yelp_client.search_by_coordinates(lat, lon, **params_grocery)
-    print "second pass"
-    print resp_grocery
-    if not resp_grocery.businesses:
-        print "no businesses"
-        return info
-    type_idx = {'name': 0, 'alias': 1}
-    for b in resp_grocery.businesses:
-        name = b.name
-        print name
-        print b.distance
-        if( b.distance < 40 ):
-            print "adding" + name
-            categories = [c[type_idx[category_type]] for c in b.categories]
-            info = info + categories + [name]
+    info = info + yelp_search(lat, lon, "grocery", category_type)
+    info = info + yelp_search(lat, lon, "cta", category_type)
+
     print jsonify(info)
     return info
 
