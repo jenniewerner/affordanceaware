@@ -146,6 +146,10 @@ def make_weather_request(curr_lat, curr_lon):
     response = (requests.get(url)).json()
     return response
 
+def make_forcast_request(curr_lat, curr_lon):
+    url = "http://api.openweathermap.org/data/2.5/forecast?lat=" + str(curr_lat) + "&lon=" + str(curr_lon) + "&appid=" + WEATHER_API_KEY
+    response = (requests.get(url)).json()
+    return response
 
 def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):
     """ return sunset, sunrise, daytime, or nighttime given values in utc """
@@ -185,6 +189,7 @@ def get_weather(curr_lat, curr_lon):
 
 
 def get_weather_time_keyvalues(curr_lat, curr_lon):
+    forcast_response = make_forcast_request(curr_lat, curr_lon)
     response = make_weather_request(curr_lat, curr_lon)
 
     weather_tags_list = [weather["main"] for weather in response['weather']]
@@ -197,6 +202,15 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
     sunrise_in_utc = sunrise.replace(tzinfo=utc)
     current_in_utc = datetime.datetime.now().replace(tzinfo=utc)
     kv[period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc)] = True
+
+    for prediction in forcast_response["list"]:
+        forcast_dt = datetime.datetime.fromtimestamp(prediction["dt"])
+        forcast_dt = forcast_dt.replace(tzinfo=utc)
+
+        if(abs(sunset_in_utc - forcast_dt) <= datetime.timedelta(hours=3)):
+            if(sunset_in_utc.weekday() == forcast_dt.weekday()):
+                kv["sunset_predicted_weather"] = prediction["weather"][0]["main"].lower()
+                break
 
     current_local = get_local_time(curr_lat, curr_lon)
     kv["hour"] = current_local.hour
