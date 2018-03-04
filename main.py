@@ -292,6 +292,7 @@ def yelp_api(lat, lon, category_type):
 
     info = info + yelp_search(lat, lon, "grocery", category_type)
     info = info + yelp_search(lat, lon, "cta", category_type)
+    info = info + yelp_search(lat, lon, "bars", category_type)
 
     print jsonify(info)
     return info
