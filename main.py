@@ -213,6 +213,7 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
                 break
 
     current_local = get_local_time(curr_lat, curr_lon)
+    kv["utc_offset"] = current_local.utcoffset().total_seconds()/60/60
     kv["hour"] = current_local.hour
     kv["minute"] = current_local.minute
     #kv["sunset_time"] = sunset
