@@ -306,6 +306,8 @@ def transform_name_to_variable(category_name):
                          .replace(' ', '_')
                          .replace('&', '_')
                          .replace('\'', '_')
+                         .replace('(', '_')
+                         .replace(')', '_')
                          .lower())
 
 
