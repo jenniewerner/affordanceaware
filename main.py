@@ -78,7 +78,7 @@ def get_search(cat):
         name = name.replace(" ", "_")
         categories = [c[1] for c in b.categories]
         info = info  + [name, categories]
-    
+
     return jsonify(info)
 
 
@@ -89,7 +89,7 @@ def get_current_conditions(lat, lon):
     current_conditions += local_testing_spots(lat, lon)
     #current_conditions += google_api(lat, lon)
     current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
-    
+
     get_objects(current_conditions)
     print current_conditions
     return current_conditions
@@ -108,13 +108,13 @@ def get_current_conditions_as_keyvalues(lat, lon):
 
 def get_objects(conditions):
     objects = {"beaches": ["waves", "build_a_sandcastle"], "northwestern_university_library": ["castle"],
-               "coffee": ["chair", "sit_in_a_chair"], "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"], 
-               "hackerspace": ["computer", "relax_in_a_chair", "surf_the_interweb"], 
+               "coffee": ["chair", "sit_in_a_chair"], "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"],
+               "hackerspace": ["computer", "relax_in_a_chair", "surf_the_interweb"],
                "trainstations": ["train", "ride_a_train"], "northwestern_university_sailing_center": ["sailboat"],
             }
 
     for key, value in objects.iteritems():
-        if key in conditions: 
+        if key in conditions:
             conditions+= value
     return conditions
 
@@ -123,7 +123,7 @@ def local_testing_spots(lat, lon):
     testing_spots = [
         {"cafeteria": (42.058813,-87.675602)},
         {"park": (42.052460,-87.669876)},
-        # {"hackerspace": (42.056929, -87.676694)}, 
+        # {"hackerspace": (42.056929, -87.676694)},
         # {"end_of_f_wing": (42.057472, -87.67662)},
         # {"atrium": (42.057323, -87.676164)},
         # {"k_wing": (42.05745, -87.675085)},
@@ -135,22 +135,28 @@ def local_testing_spots(lat, lon):
         {"train_stations": (42.058623,-87.683433)},
         {"train_stations": (42.019285,-87.673238)},
         {"library": (42.058141,-87.674490)},
-        {"field": (42.058364,-87.67089)},
-        {"park": (42.053192,-87.676967)},
+        {"field": (42.058364,-87.67089)}, #lakeside field
+        {"field": (42.053160, -87.677064)}, #deering meadow, street side
+        {"field": (42.053311, -87.675788)}, #deering meadow, university side
+        {"park": (42.053192,-87.676967)}, #deering meadow
         {"religious_schools": (42.056168,-87.675802)},
-        {"religious_schools": (42.050438,-87.677565)},
-        {"gym": (42.054259, -87.678203)},
-        {"gym": (42.059575, -87.672667)},
-        {"gym": (42.059612, -87.673462)},
+        {"religious_schools": (42.050438,-87.677565)}, #alice millar
+        {"gym": (42.054259, -87.678203)},#blom
+        {"gym": (42.059575, -87.672667)},#spac
+        {"gym": (42.059612, -87.673462)}, #spac
         {"religious_schools": (42.053232, -87.677212)},
         {"library": (42.053046, -87.674814)},
         {"library": ( 42.053046, -87.674814)},
+        {"lake": (47.671756, -122.344640)}, #greenlake
+        {"lake": (47.681494, -122.341121)}, #greenlake
+        {"lake": (47.680194, -122.327946)}, #greenlake
+        {"park": (47.680194, -122.327946)}, #greenlake
+        {"lake": (42.052460,-87.669876)}, #lakefill
+        {"bar": (47.600759, -122.331817)}, #mccoy's
+        {"park": (47.724032, -122.337868)}, #ingraham 
         # {"library": (42.053046, -87.674814)},
         # {"library": (42.053046, -87.674814)},
         # {"library": (42.053046, -87.674814)},
-
-
-       
 
                      ]
 
@@ -342,7 +348,7 @@ def transform_name_to_variable(category_name):
                          .replace('(', '_')
                          .replace(')', '_')
                          .replace('-', '_')
-                         
+
                          .lower())
 
 
