@@ -98,6 +98,7 @@ def get_current_conditions(lat, lon):
 def get_current_conditions_as_keyvalues(lat, lon):
     curr_conditions = {}
     curr_conditions.update(get_weather_time_keyvalues(lat, lon))
+    curr_conditions.update(local_places_keyvalues(lat, lon))
     curr_conditions.update(yelp_api_keyvalues(lat, lon))
     curr_conditions = {transform_name_to_variable(k): v
                        for (k, v) in curr_conditions.iteritems()}
@@ -119,22 +120,37 @@ def get_objects(conditions):
 
 @app.route('/local_testing/<string:lat>/<string:lon>', methods=['GET'])
 def local_testing_spots(lat, lon):
-    testing_spots = [{"hackerspace": (42.056929, -87.676694)}, 
-                     {"end_of_f_wing": (42.057472, -87.67662)},
-                     {"atrium": (42.057323, -87.676164)},
-                     {"k_wing": (42.05745, -87.675085)},
-                     {"l_wing":(42.057809, -87.67611)},
-                     {"grocery": (42.047691, -87.679189)},
-                     {"grocery": (42.047691, -87.679189)},
-                     {"grocery": (42.047874, -87.679489)},
-                     {"chicago_sheridan": (42.056043, -87.677158)}
+    testing_spots = [
+        {"cafeteria": (42.058813,-87.675602)},
+        {"park": (42.052460,-87.669876)},
+        # {"hackerspace": (42.056929, -87.676694)}, 
+        # {"end_of_f_wing": (42.057472, -87.67662)},
+        # {"atrium": (42.057323, -87.676164)},
+        # {"k_wing": (42.05745, -87.675085)},
+        # {"l_wing":(42.057809, -87.67611)},
+        {"grocery": (42.047691, -87.679189)},
+        {"grocery": (42.047691, -87.679189)},
+        {"grocery": (42.047874, -87.679489)},
+        {"gym": (42.061293,-87.676620)},
+        {"train_stations": (42.058623,-87.683433)},
+        {"train_stations": (42.019285,-87.673238)},
+        {"library": (42.058141,-87.674490)},
+        {"field": (42.058364,-87.67089)},
+        {"park": (42.053192,-87.676967)},
+        {"religious_schools": (42.056168,-87.675802)},
+        {"religious_schools": (42.050438,-87.677565)},
+        {"gym": (42.054259, -87.678203)},
+        {"gym": (42.059575, -87.672667)},
+        # {"train_stations": (42.019285,-87.673238)},
+        # {"train_stations": (42.019285,-87.673238)},
+        # {"train_stations": (42.019285,-87.673238)},
 
                      ]
 
     close_locations = []
     for loc in testing_spots:
         dist = vincenty(loc.values()[0], (lat, lon)).meters
-        if( dist < 35):
+        if( dist < 60):
             print loc.keys()[0]
             print dist
             close_locations.append(loc.keys()[0])
@@ -236,10 +252,10 @@ def google_api(lat, lon):
 
     return info
 
-def yelp_search(lat, lon, term, category_type):
+def yelp_search(lat, lon, term, radius, category_type):
     info = []
     params = {
-        "radius_filter" : 40,
+        "radius_filter" : radius,
         "limit" : 3,
         "sort_by" : "distance", #sort by distance
         "open_now" : True,
@@ -251,7 +267,8 @@ def yelp_search(lat, lon, term, category_type):
     type_idx = {'name': 0, 'alias': 1}
     for b in resp.businesses:
         name = b.name
-        if( b.distance < 40 ):
+        # print "we see " + name + " " + str(b.distance)
+        if( b.distance < radius ):
             print "adding" + name
             categories = [c[type_idx[category_type]] for c in b.categories]
             info = info + categories + [name]
@@ -290,9 +307,18 @@ def yelp_api(lat, lon, category_type):
         categories = [c[type_idx[category_type]] for c in b.categories]
         info = info + categories + [name]
 
-    info = info + yelp_search(lat, lon, "grocery", category_type)
-    info = info + yelp_search(lat, lon, "cta", category_type)
-    info = info + yelp_search(lat, lon, "bars", category_type)
+    info = info + yelp_search(lat, lon, "grocery", 40, category_type,)
+    info = info + yelp_search(lat, lon, "train", 50, category_type)
+    info = info + yelp_search(lat, lon, "cta", 50, category_type)
+
+    info = info + yelp_search(lat, lon, "bars", 40, category_type)
+    info = info + yelp_search(lat, lon, "library", 40, category_type)
+    info = info + yelp_search(lat, lon, "climbing", 40, category_type)
+    info = info + yelp_search(lat, lon, "cafeteria", 50, category_type)
+    info = info + yelp_search(lat, lon, "religious", 50, category_type)
+    info = info + yelp_search(lat, lon, "sports club", 50, category_type)
+
+
 
     print jsonify(info)
     return info
@@ -321,6 +347,8 @@ def test_transform_name_to_variable():
 def yelp_api_keyvalues(lat, lon, category_type='name'):
     return {key: True for key in yelp_api(lat, lon, category_type)}
 
+def local_places_keyvalues(lat, lon):
+    return {key: True for key in local_testing_spots(lat, lon)}
 
 @app.route('/test_locations/<string:lat>/<string:lon>', methods=['GET'])
 def test_yelp(lat, lon):
