@@ -141,9 +141,16 @@ def local_testing_spots(lat, lon):
         {"religious_schools": (42.050438,-87.677565)},
         {"gym": (42.054259, -87.678203)},
         {"gym": (42.059575, -87.672667)},
-        # {"train_stations": (42.019285,-87.673238)},
-        # {"train_stations": (42.019285,-87.673238)},
-        # {"train_stations": (42.019285,-87.673238)},
+        {"gym": (42.059612, -87.673462)},
+        {"religious_schools": (42.053232, -87.677212)},
+        {"library": (42.053046, -87.674814)},
+        {"library": ( 42.053046, -87.674814)},
+        # {"library": (42.053046, -87.674814)},
+        # {"library": (42.053046, -87.674814)},
+        # {"library": (42.053046, -87.674814)},
+
+
+       
 
                      ]
 
@@ -334,6 +341,8 @@ def transform_name_to_variable(category_name):
                          .replace('\'', '_')
                          .replace('(', '_')
                          .replace(')', '_')
+                         .replace('-', '_')
+                         
                          .lower())
 
 
