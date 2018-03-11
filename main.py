@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import datetime
 from os import environ
+from sets import Set
 from multiprocessing import Pool, cpu_count
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -199,7 +200,8 @@ def yelp_api(lat, lng, category_type):
                     {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "religious"},
                     {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "sports club"}]
 
-    info = []
+    # add to set to eliminate duplicates
+    info_set = Set()
     if RUN_PARALLEL:
         pool = ThreadPool(cpu_count())
         results = pool.map(yelp_search_with_dict, search_dicts)
@@ -207,13 +209,16 @@ def yelp_api(lat, lng, category_type):
         pool.join()
 
         for result in results:
-            info = info + result
+            info_set.update(result)
     else:
         for search_dict in search_dicts:
-            info = info + yelp_search_with_dict(search_dict)
+            search_output = yelp_search_with_dict(search_dict)
+            info_set.update(search_output)
 
-    print(jsonify(info))
-    return info
+    # convert set to list before converting to json and returning
+    info_list = list(info_set)
+    print("locations/categories from yelp: {}".format(info_list))
+    return info_list
 
 
 @app.route('/test_locations/<string:lat>/<string:lng>', methods=['GET'])
@@ -498,6 +503,7 @@ def yelp_search(lat, lng, term, radius, category_type):
             print("adding: {} at distance: {} from user".format(name, distance))
             categories = [c[type_idx[category_type]] for c in b.categories]
             info = info + categories + [name]
+
     return info
 
 
