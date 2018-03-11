@@ -18,11 +18,9 @@ from yelp.client import Client
 from yelp.oauth1_authenticator import Oauth1Authenticator
 from googleplaces import GooglePlaces, types, lang
 
+GOOGLE_API_KEY = 'AIzaSyDBghn4IdWKYc8YC2b2N_xYf5eaouqWvtg'
 
-
-YOUR_API_KEY = 'AIzaSyDBghn4IdWKYc8YC2b2N_xYf5eaouqWvtg'
-
-google_places = GooglePlaces(YOUR_API_KEY)
+google_places = GooglePlaces(GOOGLE_API_KEY)
 
 app = Flask(__name__)
 cors = CORS(app, resources={r"/api": {"origins": "http://localhost:3000"}})
@@ -88,43 +86,6 @@ def get_search(cat):
     return jsonify(info)
 
 
-def get_current_conditions(lat, lon):
-    current_conditions = []
-    current_conditions += get_weather(lat, lon)
-    current_conditions += yelp_api(lat, lon, category_type='alias')
-    current_conditions += local_testing_spots(lat, lon)
-    # current_conditions += google_api(lat, lon)
-    current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
-
-    get_objects(current_conditions)
-    print current_conditions
-    return current_conditions
-
-
-def get_current_conditions_as_keyvalues(lat, lon):
-    curr_conditions = {}
-    curr_conditions.update(get_weather_time_keyvalues(lat, lon))
-    curr_conditions.update(local_places_keyvalues(lat, lon))
-    curr_conditions.update(yelp_api_keyvalues(lat, lon))
-    curr_conditions = {transform_name_to_variable(k): v
-                       for (k, v) in curr_conditions.iteritems()}
-    return curr_conditions
-
-
-def get_objects(conditions):
-    objects = {"beaches": ["waves", "build_a_sandcastle"], "northwestern_university_library": ["castle"],
-               "coffee": ["chair", "sit_in_a_chair"],
-               "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"],
-               "hackerspace": ["computer", "relax_in_a_chair", "surf_the_interweb"],
-               "trainstations": ["train", "ride_a_train"], "northwestern_university_sailing_center": ["sailboat"],
-               }
-
-    for key, value in objects.iteritems():
-        if key in conditions:
-            conditions += value
-    return conditions
-
-
 @app.route('/local_testing/<string:lat>/<string:lon>', methods=['GET'])
 def local_testing_spots(lat, lon):
     testing_spots = [
@@ -175,6 +136,121 @@ def local_testing_spots(lat, lon):
             print dist
             close_locations.append(loc.keys()[0])
     return close_locations
+
+
+@app.route('/yelp/<string:lat>/<string:lon>', methods=['GET'])
+def yelp_api(lat, lon, category_type):
+    """Returns list of strings indicating the name of businesses and categories around the lat, lon
+    lat: float
+    lon: float
+    type: "alias" or "name", determines if 'Vietnamese' vs 'vietnamese' will be returned
+    """
+    print "inside yelp!"
+    tags = []
+    affordances = []
+    names = []
+
+    params = {
+        "radius_filter": 40,
+        "limit": 3,
+        "sort_by": "distance",  # sort by distance
+        "open_now": True,
+    }
+    resp = yelp_client.search_by_coordinates(lat, lon, **params)
+    print "first pass"
+    print resp
+    info = []
+    if not resp.businesses:
+        print "no businesses"
+    type_idx = {'name': 0, 'alias': 1}
+    for b in resp.businesses:
+        name = b.name
+        print name
+        print b.distance
+        categories = [c[type_idx[category_type]] for c in b.categories]
+        info = info + categories + [name]
+
+    info = info + yelp_search(lat, lon, "grocery", 40, category_type, )
+    info = info + yelp_search(lat, lon, "train", 50, category_type)
+    info = info + yelp_search(lat, lon, "cta", 50, category_type)
+
+    info = info + yelp_search(lat, lon, "bars", 40, category_type)
+    info = info + yelp_search(lat, lon, "library", 40, category_type)
+    info = info + yelp_search(lat, lon, "climbing", 40, category_type)
+    info = info + yelp_search(lat, lon, "cafeteria", 50, category_type)
+    info = info + yelp_search(lat, lon, "religious", 50, category_type)
+    info = info + yelp_search(lat, lon, "sports club", 50, category_type)
+
+    print jsonify(info)
+    return info
+
+
+@app.route('/test_locations/<string:lat>/<string:lon>', methods=['GET'])
+def test_yelp(lat, lon):
+    print "inside yelp!"
+    tags = []
+    affordances = []
+    names = []
+
+    params = {
+        "limit": 10,
+        "sort": 1,  # sort by distance
+    }
+    resp = yelp_client.search_by_coordinates(float(lat), float(lon), **params)
+    print resp
+    info = []
+    if not resp.businesses:
+        return []
+    for b in resp.businesses:
+        name = b.name
+        print name
+        categories = [c[1] for c in b.categories]
+        print categories
+        info = info + [[name] + categories]
+        print info
+    return jsonify(info)
+
+
+@app.route("/")
+def hello():
+    return "Hello World!"
+
+
+def get_current_conditions(lat, lon):
+    current_conditions = []
+    current_conditions += get_weather(lat, lon)
+    current_conditions += yelp_api(lat, lon, category_type='alias')
+    current_conditions += local_testing_spots(lat, lon)
+    # current_conditions += google_api(lat, lon)
+    current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
+
+    get_objects(current_conditions)
+    print current_conditions
+    return current_conditions
+
+
+def get_current_conditions_as_keyvalues(lat, lon):
+    curr_conditions = {}
+    curr_conditions.update(get_weather_time_keyvalues(lat, lon))
+    curr_conditions.update(local_places_keyvalues(lat, lon))
+    curr_conditions.update(yelp_api_keyvalues(lat, lon))
+    curr_conditions = {transform_name_to_variable(k): v
+                       for (k, v) in curr_conditions.iteritems()}
+    return curr_conditions
+
+
+def get_objects(conditions):
+    objects = {"beaches": ["waves", "build_a_sandcastle"], "northwestern_university_library": ["castle"],
+               "coffee": ["chair", "sit_in_a_chair"],
+               "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"],
+               "hackerspace": ["computer", "relax_in_a_chair", "surf_the_interweb"],
+               "trainstations": ["train", "ride_a_train"], "northwestern_university_sailing_center": ["sailboat"],
+               }
+
+    for key, value in objects.iteritems():
+        if key in conditions:
+            conditions += value
+    return conditions
 
 
 def make_weather_request(curr_lat, curr_lon):
@@ -300,53 +376,6 @@ def yelp_search(lat, lon, term, radius, category_type):
     return info
 
 
-@app.route('/yelp/<string:lat>/<string:lon>', methods=['GET'])
-def yelp_api(lat, lon, category_type):
-    """Returns list of strings indicating the name of businesses and categories around the lat, lon
-    lat: float
-    lon: float
-    type: "alias" or "name", determines if 'Vietnamese' vs 'vietnamese' will be returned
-    """
-    print "inside yelp!"
-    tags = []
-    affordances = []
-    names = []
-
-    params = {
-        "radius_filter": 40,
-        "limit": 3,
-        "sort_by": "distance",  # sort by distance
-        "open_now": True,
-    }
-    resp = yelp_client.search_by_coordinates(lat, lon, **params)
-    print "first pass"
-    print resp
-    info = []
-    if not resp.businesses:
-        print "no businesses"
-    type_idx = {'name': 0, 'alias': 1}
-    for b in resp.businesses:
-        name = b.name
-        print name
-        print b.distance
-        categories = [c[type_idx[category_type]] for c in b.categories]
-        info = info + categories + [name]
-
-    info = info + yelp_search(lat, lon, "grocery", 40, category_type, )
-    info = info + yelp_search(lat, lon, "train", 50, category_type)
-    info = info + yelp_search(lat, lon, "cta", 50, category_type)
-
-    info = info + yelp_search(lat, lon, "bars", 40, category_type)
-    info = info + yelp_search(lat, lon, "library", 40, category_type)
-    info = info + yelp_search(lat, lon, "climbing", 40, category_type)
-    info = info + yelp_search(lat, lon, "cafeteria", 50, category_type)
-    info = info + yelp_search(lat, lon, "religious", 50, category_type)
-    info = info + yelp_search(lat, lon, "sports club", 50, category_type)
-
-    print jsonify(info)
-    return info
-
-
 def transform_name_to_variable(category_name):
     """ this is neccessary to get the category names to align with the variables
     that are created in affinder
@@ -375,37 +404,6 @@ def yelp_api_keyvalues(lat, lon, category_type='name'):
 
 def local_places_keyvalues(lat, lon):
     return {key: True for key in local_testing_spots(lat, lon)}
-
-
-@app.route('/test_locations/<string:lat>/<string:lon>', methods=['GET'])
-def test_yelp(lat, lon):
-    print "inside yelp!"
-    tags = []
-    affordances = []
-    names = []
-
-    params = {
-        "limit": 10,
-        "sort": 1,  # sort by distance
-    }
-    resp = yelp_client.search_by_coordinates(float(lat), float(lon), **params)
-    print resp
-    info = []
-    if not resp.businesses:
-        return []
-    for b in resp.businesses:
-        name = b.name
-        print name
-        categories = [c[1] for c in b.categories]
-        print categories
-        info = info + [[name] + categories]
-        print info
-    return jsonify(info)
-
-
-@app.route("/")
-def hello():
-    return "Hello World!"
 
 
 if __name__ == '__main__':
