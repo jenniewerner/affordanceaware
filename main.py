@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import datetime
 from os import environ
-from multiprocessing import Pool, cpu_count
+from multiprocessing import cpu_count
 from multiprocessing.dummy import Pool as ThreadPool
 
 import requests
@@ -14,10 +14,12 @@ from pytz import timezone, utc
 from timezonefinder import TimezoneFinder
 from geopy.distance import vincenty
 
+from location_cache import LocationCache
+
 # APIs
 from yelp.client import Client
 from yelp.oauth1_authenticator import Oauth1Authenticator
-from googleplaces import GooglePlaces, types, lang
+from googleplaces import GooglePlaces
 
 # setup Flask app
 app = Flask(__name__)
@@ -46,6 +48,21 @@ firebase_config = {
     "databaseURL": "https://" + environ.get("FIREBASE_NAME") + ".firebaseio.com",
     "storageBucket": environ.get("FIREBASE_NAME") + ".appspot.com"
 }
+
+# setup connection to location cache
+MONGODB_URI = environ.get("MONGODB_URI")
+if MONGODB_URI is None or MONGODB_URI == "":
+    print("MONGODB_URI not specified. Falling back to localhost.")
+    MONGODB_URI = "mongodb://localhost:27017/"
+
+CACHE_THRESHOLD = environ.get("CACHE_THRESHOLD")
+if CACHE_THRESHOLD is None:
+    print("CACHE_THRESHOLD not specified. Falling back to 10.0 meters.")
+    CACHE_THRESHOLD = 10.0
+else:
+    CACHE_THRESHOLD = float(CACHE_THRESHOLD)
+
+LOCATION_CACHE = LocationCache(MONGODB_URI, "affordance-aware", "LocationCache", threshold=CACHE_THRESHOLD)
 
 # check number of available CPUs
 RUN_PARALLEL = True
@@ -187,6 +204,14 @@ def yelp_api(lat, lng, category_type):
     """
     print("inside yelp!")
 
+    # check cache
+    cached_location = LOCATION_CACHE.fetch_from_cache(lat, lng)
+    if cached_location is not None:
+        print("Cache HIT...returning cached data.")
+        return cached_location['yelp_info']
+
+    print("Cache MISS...querying data from Yelp.")
+
     # run additional searches
     search_dicts = [{"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": ""},  # initial query
                     {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "grocery"},
@@ -217,6 +242,10 @@ def yelp_api(lat, lng, category_type):
     # convert set to list before converting to json and returning
     info_list = list(info_set)
     print("locations/categories from yelp: {}".format(info_list))
+
+    # add data to cache before returning
+    LOCATION_CACHE.add_to_cache(lat, lng, info_list)
+
     return info_list
 
 

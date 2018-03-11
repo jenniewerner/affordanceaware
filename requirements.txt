@@ -1,5 +1,6 @@
 BeautifulSoup==3.2.1
 beautifulsoup4==4.6.0
+certifi==2018.1.18
 click==6.6
 configparser==3.5.0
 cycler==0.10.0
@@ -7,6 +8,7 @@ decorator==4.0.9
 Django==1.10
 enum34==1.1.6
 Flask==0.11.1
+Flask-Cors==3.0.3
 future==0.16.0
 futures==3.0.5
 gax-google-logging-v2==0.8.3
@@ -35,6 +37,7 @@ protobuf==3.1.0.post1
 pyasn1==0.1.9
 pyasn1-modules==0.0.8
 pycryptodome==3.4.3
+pymongo==3.6.1
 pyowm==2.5.0
 pyparsing==2.1.1
 Pyrebase==3.0.24
@@ -52,4 +55,3 @@ update-checker==0.11
 virtualenv==15.1.0
 Werkzeug==0.11.11
 yelp==1.0.2
-Flask-Cors==3.0.3
