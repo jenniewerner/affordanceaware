@@ -1,54 +1,50 @@
 <!DOCTYPE html>
 <html>
 <body>
+    <p>Enter an experience and hit enter to find out where your experience is possible!</p>
 
-<p>Enter an experience and hit enter to find out where your experience is possible!</p>
+    <textarea id="input_exp" rows="4" cols="50" type="text"></textarea>
+    <br>
+    <button onclick="query()" type="submit" value="Submit"> Submit</button>
+    <p id="results"></p>
+    <br>
+    <br>
+    <p id="more"></p>
 
-  <textarea id="input_exp" rows="4" cols="50" type="text"></textarea>
-  <br>
-  <button onclick="query()" type="submit" value="Submit"> Submit </button>
-<p id="results"> </p>
-<br>
-<br>
-<p id="more"> </p>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script>
+        var r = document.getElementById("results");
+        var m = document.getElementById("more");
 
-</body>
-</html>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
-<script>
-var r = document.getElementById("results");
-var m = document.getElementById("more");
+        function query() {
+            console.log(document.getElementById("input_exp").value)
+            aClient = new HttpClient();
+            var url = "https://affordanceaware.herokuapp.com/experience/" + document.getElementById("input_exp").value;
+            r.innerHTML = ".... loading"
+            aClient.get(url, function (response) {
+                array = $.parseJSON(response)
+                r.innerHTML = "a good place for you is: " + array[0]
+                m.innerHTML = "the place rankings are: " + array[1];
+                console.log(response)
 
-function query(){
-		console.log(document.getElementById("input_exp").value)
-	    aClient = new HttpClient();
-    	var url = "https://affordanceaware.herokuapp.com/experience/" + document.getElementById("input_exp").value; 
-    	r.innerHTML = ".... loading"
-		aClient.get(url, function(response) {
-			array = $.parseJSON(response)
-			r.innerHTML = "a good place for you is: " + array[0]
-			m.innerHTML = "the place rankings are: " + array[1];
-			console.log(response)
-	
 
-		});
+            });
 
-}
-
-var HttpClient = function() {
-    this.get = function(aUrl, aCallback) {
-        var anHttpRequest = new XMLHttpRequest();
-        anHttpRequest.onreadystatechange = function() { 
-            if (anHttpRequest.readyState == 4 && anHttpRequest.status == 200)
-                aCallback(anHttpRequest.responseText);
         }
 
-        anHttpRequest.open( "GET", aUrl, true );            
-        anHttpRequest.send( null );
-    }
-}
+        var HttpClient = function () {
+            this.get = function (aUrl, aCallback) {
+                var anHttpRequest = new XMLHttpRequest();
+                anHttpRequest.onreadystatechange = function () {
+                    if (anHttpRequest.readyState == 4 && anHttpRequest.status == 200)
+                        aCallback(anHttpRequest.responseText);
+                };
 
-</script>
+                anHttpRequest.open("GET", aUrl, true);
+                anHttpRequest.send(null);
+            }
+        }
 
+    </script>
 </body>
 </html>

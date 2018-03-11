@@ -1,41 +1,47 @@
-from flask import Flask, jsonify
+import datetime
 import math
 import json
 import uuid
-import requests
-import datetime
-from pytz import timezone, utc
-from yelp.client import Client
-from yelp.oauth1_authenticator import Oauth1Authenticator
 from os import environ
-from googleplaces import GooglePlaces, types, lang
+
+import requests
+from flask import Flask, jsonify
+from flask_cors import CORS
+
+# location and time imports
+from pytz import timezone, utc
 from timezonefinder import TimezoneFinder
 from geopy.distance import vincenty
-from flask_cors import CORS
+
+# APIs
+from yelp.client import Client
+from yelp.oauth1_authenticator import Oauth1Authenticator
+from googleplaces import GooglePlaces, types, lang
+
+
 
 YOUR_API_KEY = 'AIzaSyDBghn4IdWKYc8YC2b2N_xYf5eaouqWvtg'
 
 google_places = GooglePlaces(YOUR_API_KEY)
 
-app = Flask (__name__)
+app = Flask(__name__)
 cors = CORS(app, resources={r"/api": {"origins": "http://localhost:3000"}})
 
-
 yelp_auth = auth = Oauth1Authenticator(
-    consumer_key = environ.get("YELP_KEY"),
-    consumer_secret = environ.get("YELP_CSECRET"),
-    token = environ.get("YELP_TOKEN"),
-    token_secret = environ.get("YELP_TSECRET")
+    consumer_key=environ.get("YELP_KEY"),
+    consumer_secret=environ.get("YELP_CSECRET"),
+    token=environ.get("YELP_TOKEN"),
+    token_secret=environ.get("YELP_TSECRET")
 )
 
 yelp_client = Client(yelp_auth)
 
 WEATHER_API_KEY = environ.get("WEATHER_KEY")
 firebase_config = {
-  "apiKey": environ.get("FIREBASE_KEY"),
-  "authDomain": environ.get("FIREBASE_NAME") + ".firebaseapp.com",
-  "databaseURL": "https://"+environ.get("FIREBASE_NAME") +".firebaseio.com",
-  "storageBucket": environ.get("FIREBASE_NAME") + ".appspot.com"
+    "apiKey": environ.get("FIREBASE_KEY"),
+    "authDomain": environ.get("FIREBASE_NAME") + ".firebaseapp.com",
+    "databaseURL": "https://" + environ.get("FIREBASE_NAME") + ".firebaseio.com",
+    "storageBucket": environ.get("FIREBASE_NAME") + ".appspot.com"
 }
 
 
@@ -64,10 +70,10 @@ def get_location_keyvalues(lat, lon):
 def get_search(cat):
     params = {
         "term": cat,
-        "radius_filter" : 500,
-        #"limit": 20,
-        "sort" : 1, #sort by distance
-        #"open_now" : True,
+        "radius_filter": 500,
+        # "limit": 20,
+        "sort": 1,  # sort by distance
+        # "open_now" : True,
     }
     resp = yelp_client.search_by_coordinates(42.046876, -87.679532, **params)
     info = []
@@ -77,7 +83,7 @@ def get_search(cat):
         name = b.name
         name = name.replace(" ", "_")
         categories = [c[1] for c in b.categories]
-        info = info  + [name, categories]
+        info = info + [name, categories]
 
     return jsonify(info)
 
@@ -87,7 +93,7 @@ def get_current_conditions(lat, lon):
     current_conditions += get_weather(lat, lon)
     current_conditions += yelp_api(lat, lon, category_type='alias')
     current_conditions += local_testing_spots(lat, lon)
-    #current_conditions += google_api(lat, lon)
+    # current_conditions += google_api(lat, lon)
     current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
 
     get_objects(current_conditions)
@@ -105,24 +111,25 @@ def get_current_conditions_as_keyvalues(lat, lon):
     return curr_conditions
 
 
-
 def get_objects(conditions):
     objects = {"beaches": ["waves", "build_a_sandcastle"], "northwestern_university_library": ["castle"],
-               "coffee": ["chair", "sit_in_a_chair"], "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"],
+               "coffee": ["chair", "sit_in_a_chair"],
+               "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"],
                "hackerspace": ["computer", "relax_in_a_chair", "surf_the_interweb"],
                "trainstations": ["train", "ride_a_train"], "northwestern_university_sailing_center": ["sailboat"],
-            }
+               }
 
     for key, value in objects.iteritems():
         if key in conditions:
-            conditions+= value
+            conditions += value
     return conditions
+
 
 @app.route('/local_testing/<string:lat>/<string:lon>', methods=['GET'])
 def local_testing_spots(lat, lon):
     testing_spots = [
-        {"cafeteria": (42.058813,-87.675602)},
-        {"park": (42.052460,-87.669876)},
+        {"cafeteria": (42.058813, -87.675602)},
+        {"park": (42.052460, -87.669876)},
         # {"hackerspace": (42.056929, -87.676694)},
         # {"end_of_f_wing": (42.057472, -87.67662)},
         # {"atrium": (42.057323, -87.676164)},
@@ -131,39 +138,39 @@ def local_testing_spots(lat, lon):
         {"grocery": (42.047691, -87.679189)},
         {"grocery": (42.047691, -87.679189)},
         {"grocery": (42.047874, -87.679489)},
-        {"gyms": (42.061293,-87.676620)},
-        {"train_stations": (42.058623,-87.683433)},
-        {"train_stations": (42.019285,-87.673238)},
-        {"libraries": (42.058141,-87.674490)},
-        {"field": (42.058364,-87.67089)}, #lakeside field
-        {"field": (42.053160, -87.677064)}, #deering meadow, street side
-        {"field": (42.053311, -87.675788)}, #deering meadow, university side
-        {"parks": (42.053192,-87.676967)}, #deering meadow
-        {"religious_schools": (42.056168,-87.675802)},
-        {"religious_schools": (42.050438,-87.677565)}, #alice millar
-        {"gyms": (42.054259, -87.678203)},#blom
-        {"gyms": (42.059575, -87.672667)},#spac
-        {"gyms": (42.059612, -87.673462)}, #spac
+        {"gyms": (42.061293, -87.676620)},
+        {"train_stations": (42.058623, -87.683433)},
+        {"train_stations": (42.019285, -87.673238)},
+        {"libraries": (42.058141, -87.674490)},
+        {"field": (42.058364, -87.67089)},  # lakeside field
+        {"field": (42.053160, -87.677064)},  # deering meadow, street side
+        {"field": (42.053311, -87.675788)},  # deering meadow, university side
+        {"parks": (42.053192, -87.676967)},  # deering meadow
+        {"religious_schools": (42.056168, -87.675802)},
+        {"religious_schools": (42.050438, -87.677565)},  # alice millar
+        {"gyms": (42.054259, -87.678203)},  # blom
+        {"gyms": (42.059575, -87.672667)},  # spac
+        {"gyms": (42.059612, -87.673462)},  # spac
         {"religious_schools": (42.053232, -87.677212)},
         {"libraries": (42.053046, -87.674814)},
-        {"libraries": ( 42.053046, -87.674814)},
-        {"lakes": (47.671756, -122.344640)}, #greenlake
-        {"lakes": (47.681494, -122.341121)}, #greenlake
-        {"lakes": (47.680194, -122.327946)}, #greenlake
-        {"parks": (47.680194, -122.327946)}, #greenlake
-        {"lakes": (42.052460,-87.669876)}, #lakefill
-        {"bars": (47.600759, -122.331817)}, #mccoy's
-        {"parks": (47.724032, -122.337868)}, #ingraham 
+        {"libraries": (42.053046, -87.674814)},
+        {"lakes": (47.671756, -122.344640)},  # greenlake
+        {"lakes": (47.681494, -122.341121)},  # greenlake
+        {"lakes": (47.680194, -122.327946)},  # greenlake
+        {"parks": (47.680194, -122.327946)},  # greenlake
+        {"lakes": (42.052460, -87.669876)},  # lakefill
+        {"bars": (47.600759, -122.331817)},  # mccoy's
+        {"parks": (47.724032, -122.337868)},  # ingraham
         # {"library": (42.053046, -87.674814)},
         # {"library": (42.053046, -87.674814)},
         # {"library": (42.053046, -87.674814)},
 
-                     ]
+    ]
 
     close_locations = []
     for loc in testing_spots:
         dist = vincenty(loc.values()[0], (lat, lon)).meters
-        if( dist < 60):
+        if dist < 60:
             print loc.keys()[0]
             print dist
             close_locations.append(loc.keys()[0])
@@ -171,21 +178,25 @@ def local_testing_spots(lat, lon):
 
 
 def make_weather_request(curr_lat, curr_lon):
-    url = "http://api.openweathermap.org/data/2.5/weather?lat=" + str(curr_lat) + "&lon=" + str(curr_lon) + "&appid=" + WEATHER_API_KEY
+    url = "http://api.openweathermap.org/data/2.5/weather?lat=" + str(curr_lat) + "&lon=" + str(
+        curr_lon) + "&appid=" + WEATHER_API_KEY
     response = (requests.get(url)).json()
     return response
 
+
 def make_forcast_request(curr_lat, curr_lon):
-    url = "http://api.openweathermap.org/data/2.5/forecast?lat=" + str(curr_lat) + "&lon=" + str(curr_lon) + "&appid=" + WEATHER_API_KEY
+    url = "http://api.openweathermap.org/data/2.5/forecast?lat=" + str(curr_lat) + "&lon=" + str(
+        curr_lon) + "&appid=" + WEATHER_API_KEY
     response = (requests.get(url)).json()
     return response
+
 
 def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):
     """ return sunset, sunrise, daytime, or nighttime given values in utc """
-    if (abs(sunset_in_utc - current_in_utc) <= datetime.timedelta(minutes=25)):
+    if abs(sunset_in_utc - current_in_utc) <= datetime.timedelta(minutes=25):
         return "sunset"
 
-    if (abs(sunrise_in_utc - current_in_utc) <= datetime.timedelta(minutes=25)):
+    if abs(sunrise_in_utc - current_in_utc) <= datetime.timedelta(minutes=25):
         return "sunrise"
 
     if sunset_in_utc > current_in_utc and sunrise_in_utc < current_in_utc:
@@ -218,7 +229,7 @@ def get_weather(curr_lat, curr_lon):
 
 
 def get_weather_time_keyvalues(curr_lat, curr_lon):
-    forcast_response = make_forcast_request(curr_lat, curr_lon)
+    forecast_response = make_forcast_request(curr_lat, curr_lon)
     response = make_weather_request(curr_lat, curr_lon)
 
     weather_tags_list = [weather["main"] for weather in response['weather']]
@@ -232,20 +243,20 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
     current_in_utc = datetime.datetime.now().replace(tzinfo=utc)
     kv[period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc)] = True
 
-    for prediction in forcast_response["list"]:
-        forcast_dt = datetime.datetime.fromtimestamp(prediction["dt"])
-        forcast_dt = forcast_dt.replace(tzinfo=utc)
+    for prediction in forecast_response["list"]:
+        forecast_dt = datetime.datetime.fromtimestamp(prediction["dt"])
+        forecast_dt = forecast_dt.replace(tzinfo=utc)
 
-        if(abs(sunset_in_utc - forcast_dt) <= datetime.timedelta(hours=3)):
-            if(sunset_in_utc.weekday() == forcast_dt.weekday()):
+        if abs(sunset_in_utc - forecast_dt) <= datetime.timedelta(hours=3):
+            if sunset_in_utc.weekday() == forecast_dt.weekday():
                 kv["sunset_predicted_weather"] = "\"" + prediction["weather"][0]["main"].lower() + "\""
                 break
 
     current_local = get_local_time(curr_lat, curr_lon)
-    kv["utc_offset"] = current_local.utcoffset().total_seconds()/60/60
+    kv["utc_offset"] = current_local.utcoffset().total_seconds() / 60 / 60
     kv["hour"] = current_local.hour
     kv["minute"] = current_local.minute
-    #kv["sunset_time"] = sunset
+    # kv["sunset_time"] = sunset
     kv["sunset_time_minutes"] = sunset.minute
     kv[current_local.tzinfo.zone] = True
     days_of_the_week = ["monday", "tuesday", "wednesday", "thursday", "friday",
@@ -256,22 +267,23 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
 
 
 def google_api(lat, lon):
-    query_result = google_places.nearby_search(lat_lng={"lat":lat, "lng":lon}, radius=20)
+    query_result = google_places.nearby_search(lat_lng={"lat": lat, "lng": lon}, radius=20)
     info = []
-    ignore = [] #['route', 'locality', 'political']
+    ignore = []  # ['route', 'locality', 'political']
     for place in query_result.places:
         if True not in [p in ignore for p in place.types]:
             info += [place.name] + place.types
 
     return info
 
+
 def yelp_search(lat, lon, term, radius, category_type):
     info = []
     params = {
-        "radius_filter" : radius,
-        "limit" : 3,
-        "sort_by" : "distance", #sort by distance
-        "open_now" : True,
+        "radius_filter": radius,
+        "limit": 3,
+        "sort_by": "distance",  # sort by distance
+        "open_now": True,
         "term": term
     }
     resp = yelp_client.search_by_coordinates(lat, lon, **params)
@@ -281,7 +293,7 @@ def yelp_search(lat, lon, term, radius, category_type):
     for b in resp.businesses:
         name = b.name
         # print "we see " + name + " " + str(b.distance)
-        if( b.distance < radius ):
+        if b.distance < radius:
             print "adding" + name
             categories = [c[type_idx[category_type]] for c in b.categories]
             info = info + categories + [name]
@@ -301,10 +313,10 @@ def yelp_api(lat, lon, category_type):
     names = []
 
     params = {
-    	"radius_filter" : 40,
-    	"limit" : 3,
-        "sort_by" : "distance", #sort by distance
-    	"open_now" : True,
+        "radius_filter": 40,
+        "limit": 3,
+        "sort_by": "distance",  # sort by distance
+        "open_now": True,
     }
     resp = yelp_client.search_by_coordinates(lat, lon, **params)
     print "first pass"
@@ -320,7 +332,7 @@ def yelp_api(lat, lon, category_type):
         categories = [c[type_idx[category_type]] for c in b.categories]
         info = info + categories + [name]
 
-    info = info + yelp_search(lat, lon, "grocery", 40, category_type,)
+    info = info + yelp_search(lat, lon, "grocery", 40, category_type, )
     info = info + yelp_search(lat, lon, "train", 50, category_type)
     info = info + yelp_search(lat, lon, "cta", 50, category_type)
 
@@ -331,8 +343,6 @@ def yelp_api(lat, lon, category_type):
     info = info + yelp_search(lat, lon, "religious", 50, category_type)
     info = info + yelp_search(lat, lon, "sports club", 50, category_type)
 
-
-
     print jsonify(info)
     return info
 
@@ -342,14 +352,14 @@ def transform_name_to_variable(category_name):
     that are created in affinder
     """
     return (category_name.replace('/', '_')
-                         .replace(' ', '_')
-                         .replace('&', '_')
-                         .replace('\'', '_')
-                         .replace('(', '_')
-                         .replace(')', '_')
-                         .replace('-', '_')
+            .replace(' ', '_')
+            .replace('&', '_')
+            .replace('\'', '_')
+            .replace('(', '_')
+            .replace(')', '_')
+            .replace('-', '_')
 
-                         .lower())
+            .lower())
 
 
 def test_transform_name_to_variable():
@@ -362,8 +372,10 @@ def test_transform_name_to_variable():
 def yelp_api_keyvalues(lat, lon, category_type='name'):
     return {key: True for key in yelp_api(lat, lon, category_type)}
 
+
 def local_places_keyvalues(lat, lon):
     return {key: True for key in local_testing_spots(lat, lon)}
+
 
 @app.route('/test_locations/<string:lat>/<string:lon>', methods=['GET'])
 def test_yelp(lat, lon):
@@ -373,8 +385,8 @@ def test_yelp(lat, lon):
     names = []
 
     params = {
-        "limit" : 10,
-        "sort" : 1, #sort by distance
+        "limit": 10,
+        "sort": 1,  # sort by distance
     }
     resp = yelp_client.search_by_coordinates(float(lat), float(lon), **params)
     print resp
@@ -386,7 +398,7 @@ def test_yelp(lat, lon):
         print name
         categories = [c[1] for c in b.categories]
         print categories
-        info = info + [[name]+categories]
+        info = info + [[name] + categories]
         print info
     return jsonify(info)
 
