@@ -226,6 +226,8 @@ def yelp_api(lat, lng, category_type):
     if RUN_PARALLEL:
         pool = ThreadPool(cpu_count())
         results = pool.map(yelp_search_with_dict, search_dicts)
+        pool.close()
+        pool.join()
 
         for result in results:
             info = info + result
