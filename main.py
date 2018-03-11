@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import datetime
 import math
 import json
@@ -18,13 +20,14 @@ from yelp.client import Client
 from yelp.oauth1_authenticator import Oauth1Authenticator
 from googleplaces import GooglePlaces, types, lang
 
-GOOGLE_API_KEY = 'AIzaSyDBghn4IdWKYc8YC2b2N_xYf5eaouqWvtg'
-
-google_places = GooglePlaces(GOOGLE_API_KEY)
-
+# setup Flask app
 app = Flask(__name__)
 cors = CORS(app, resources={r"/api": {"origins": "http://localhost:3000"}})
 
+# setup google places API
+google_places = GooglePlaces(environ.get("GOOGLE_KEY"))
+
+# setup yelp API
 yelp_auth = auth = Oauth1Authenticator(
     consumer_key=environ.get("YELP_KEY"),
     consumer_secret=environ.get("YELP_CSECRET"),
@@ -34,7 +37,10 @@ yelp_auth = auth = Oauth1Authenticator(
 
 yelp_client = Client(yelp_auth)
 
+# get weather API key
 WEATHER_API_KEY = environ.get("WEATHER_KEY")
+
+# setup firebase
 firebase_config = {
     "apiKey": environ.get("FIREBASE_KEY"),
     "authDomain": environ.get("FIREBASE_NAME") + ".firebaseapp.com",
@@ -43,29 +49,50 @@ firebase_config = {
 }
 
 
-@app.route('/conditions/<string:lat>/<string:lon>', methods=['GET'])
-def get_conditions(lat, lon):
+# routes
+@app.route('/conditions/<string:lat>/<string:lng>', methods=['GET'])
+def get_conditions(lat, lng):
     return []
 
 
-@app.route('/location_tags/<string:lat>/<string:lon>', methods=['GET'])
-def get_location_tags(lat, lon):
+@app.route('/location_tags/<string:lat>/<string:lng>', methods=['GET'])
+def get_location_tags(lat, lng):
+    """
+    Gets tags for location, as a list.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return:
+    """
     lat = float(lat)
-    lon = float(lon)
-    conditions = get_current_conditions(lat, lon)
+    lng = float(lng)
+    conditions = get_current_conditions(lat, lng)
     return jsonify(conditions)
 
 
-@app.route('/location_keyvalues/<string:lat>/<string:lon>', methods=['GET'])
-def get_location_keyvalues(lat, lon):
+@app.route('/location_keyvalues/<string:lat>/<string:lng>', methods=['GET'])
+def get_location_keyvalues(lat, lng):
+    """
+    Gets tags for location, as a dict.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return:
+    """
     lat = float(lat)
-    lon = float(lon)
-    conditions = get_current_conditions_as_keyvalues(lat, lon)
+    lng = float(lng)
+    conditions = get_current_conditions_as_keyvalues(lat, lng)
     return jsonify(conditions)
 
 
 @app.route('/search/<string:cat>', methods=['GET'])
 def get_search(cat):
+    """
+    Searches for cat in Yelp.
+
+    :param cat: category to search for, as string
+    :return:
+    """
     params = {
         "term": cat,
         "radius_filter": 500,
@@ -73,6 +100,7 @@ def get_search(cat):
         "sort": 1,  # sort by distance
         # "open_now" : True,
     }
+
     resp = yelp_client.search_by_coordinates(42.046876, -87.679532, **params)
     info = []
     if not resp.businesses:
@@ -86,8 +114,15 @@ def get_search(cat):
     return jsonify(info)
 
 
-@app.route('/local_testing/<string:lat>/<string:lon>', methods=['GET'])
-def local_testing_spots(lat, lon):
+@app.route('/local_testing/<string:lat>/<string:lng>', methods=['GET'])
+def local_testing_spots(lat, lng):
+    """
+    Search for local testing spots and return if matches.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return:
+    """
     testing_spots = [
         {"cafeteria": (42.058813, -87.675602)},
         {"park": (42.052460, -87.669876)},
@@ -130,22 +165,25 @@ def local_testing_spots(lat, lon):
 
     close_locations = []
     for loc in testing_spots:
-        dist = vincenty(loc.values()[0], (lat, lon)).meters
+        dist = vincenty(loc.values()[0], (lat, lng)).meters
         if dist < 60:
-            print loc.keys()[0]
-            print dist
+            print(loc.keys()[0])
+            print(dist)
             close_locations.append(loc.keys()[0])
     return close_locations
 
 
-@app.route('/yelp/<string:lat>/<string:lon>', methods=['GET'])
-def yelp_api(lat, lon, category_type):
-    """Returns list of strings indicating the name of businesses and categories around the lat, lon
-    lat: float
-    lon: float
-    type: "alias" or "name", determines if 'Vietnamese' vs 'vietnamese' will be returned
+@app.route('/yelp/<string:lat>/<string:lng>', methods=['GET'])
+def yelp_api(lat, lng, category_type):
     """
-    print "inside yelp!"
+    Returns list of strings indicating the name of businesses and categories around the lat, lng
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :param category_type: "alias" or "name", determines if 'Vietnamese' vs 'vietnamese' will be returned
+    :return: list of yelp response
+    """
+    print("inside yelp!")
     tags = []
     affordances = []
     names = []
@@ -156,38 +194,45 @@ def yelp_api(lat, lon, category_type):
         "sort_by": "distance",  # sort by distance
         "open_now": True,
     }
-    resp = yelp_client.search_by_coordinates(lat, lon, **params)
-    print "first pass"
-    print resp
+    resp = yelp_client.search_by_coordinates(lat, lng, **params)
+    print("first pass")
+    print(resp)
     info = []
     if not resp.businesses:
-        print "no businesses"
+        print("no businesses")
     type_idx = {'name': 0, 'alias': 1}
     for b in resp.businesses:
         name = b.name
-        print name
-        print b.distance
+        print(name)
+        print(b.distance)
         categories = [c[type_idx[category_type]] for c in b.categories]
         info = info + categories + [name]
 
-    info = info + yelp_search(lat, lon, "grocery", 40, category_type, )
-    info = info + yelp_search(lat, lon, "train", 50, category_type)
-    info = info + yelp_search(lat, lon, "cta", 50, category_type)
+    info = info + yelp_search(lat, lng, "grocery", 40, category_type, )
+    info = info + yelp_search(lat, lng, "train", 50, category_type)
+    info = info + yelp_search(lat, lng, "cta", 50, category_type)
 
-    info = info + yelp_search(lat, lon, "bars", 40, category_type)
-    info = info + yelp_search(lat, lon, "library", 40, category_type)
-    info = info + yelp_search(lat, lon, "climbing", 40, category_type)
-    info = info + yelp_search(lat, lon, "cafeteria", 50, category_type)
-    info = info + yelp_search(lat, lon, "religious", 50, category_type)
-    info = info + yelp_search(lat, lon, "sports club", 50, category_type)
+    info = info + yelp_search(lat, lng, "bars", 40, category_type)
+    info = info + yelp_search(lat, lng, "library", 40, category_type)
+    info = info + yelp_search(lat, lng, "climbing", 40, category_type)
+    info = info + yelp_search(lat, lng, "cafeteria", 50, category_type)
+    info = info + yelp_search(lat, lng, "religious", 50, category_type)
+    info = info + yelp_search(lat, lng, "sports club", 50, category_type)
 
-    print jsonify(info)
+    print(jsonify(info))
     return info
 
 
-@app.route('/test_locations/<string:lat>/<string:lon>', methods=['GET'])
-def test_yelp(lat, lon):
-    print "inside yelp!"
+@app.route('/test_locations/<string:lat>/<string:lng>', methods=['GET'])
+def test_yelp(lat, lng):
+    """
+    Returns dict of strings indicating the name of businesses and categories around the lat, lng
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return: dict of yelp response
+    """
+    print("inside yelp!")
     tags = []
     affordances = []
     names = []
@@ -196,18 +241,18 @@ def test_yelp(lat, lon):
         "limit": 10,
         "sort": 1,  # sort by distance
     }
-    resp = yelp_client.search_by_coordinates(float(lat), float(lon), **params)
-    print resp
+    resp = yelp_client.search_by_coordinates(float(lat), float(lng), **params)
+    print(resp)
     info = []
     if not resp.businesses:
         return []
     for b in resp.businesses:
         name = b.name
-        print name
+        print(name)
         categories = [c[1] for c in b.categories]
-        print categories
+        print(categories)
         info = info + [[name] + categories]
-        print info
+        print(info)
     return jsonify(info)
 
 
@@ -216,36 +261,58 @@ def hello():
     return "Hello World!"
 
 
-def get_current_conditions(lat, lon):
+# helper functions
+def get_current_conditions(lat, lng):
+    """
+    Gets the user's current affordance state, given a latitude/longitude, and returns as an list.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return: list of weather, yelp API response, and local locations
+    """
     current_conditions = []
-    current_conditions += get_weather(lat, lon)
-    current_conditions += yelp_api(lat, lon, category_type='alias')
-    current_conditions += local_testing_spots(lat, lon)
-    # current_conditions += google_api(lat, lon)
+    current_conditions += get_weather(lat, lng)
+    current_conditions += yelp_api(lat, lng, category_type='alias')
+    current_conditions += local_testing_spots(lat, lng)
+    # current_conditions += google_api(lat, lng)
     current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
 
     get_objects(current_conditions)
-    print current_conditions
     return current_conditions
 
 
-def get_current_conditions_as_keyvalues(lat, lon):
+def get_current_conditions_as_keyvalues(lat, lng):
+    """
+    Gets the user's current affordance state, given a latitude/longitude, and returns as an dictionary.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return: dict of weather, yelp API response, and local locations
+    """
     curr_conditions = {}
-    curr_conditions.update(get_weather_time_keyvalues(lat, lon))
-    curr_conditions.update(local_places_keyvalues(lat, lon))
-    curr_conditions.update(yelp_api_keyvalues(lat, lon))
-    curr_conditions = {transform_name_to_variable(k): v
-                       for (k, v) in curr_conditions.iteritems()}
+    curr_conditions.update(get_weather_time_keyvalues(lat, lng))
+    curr_conditions.update(local_places_keyvalues(lat, lng))
+    curr_conditions.update(yelp_api_keyvalues(lat, lng))
+    curr_conditions = {transform_name_to_variable(k): v for (k, v) in curr_conditions.iteritems()}
     return curr_conditions
 
 
 def get_objects(conditions):
-    objects = {"beaches": ["waves", "build_a_sandcastle"], "northwestern_university_library": ["castle"],
-               "coffee": ["chair", "sit_in_a_chair"],
-               "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"],
-               "hackerspace": ["computer", "relax_in_a_chair", "surf_the_interweb"],
-               "trainstations": ["train", "ride_a_train"], "northwestern_university_sailing_center": ["sailboat"],
-               }
+    """
+    Adds additional affordances to conditions if a match is found.
+
+    :param conditions: list of conditions, as returned from `get_current_conditions`
+    :return: list of conditions with additional affordances, if found
+    """
+    objects = {
+        "beaches": ["waves", "build_a_sandcastle"],
+        "northwestern_university_library": ["castle"],
+        "coffee": ["chair", "sit_in_a_chair"],
+        "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"],
+        "hackerspace": ["computer", "relax_in_a_chair", "surf_the_interweb"],
+        "trainstations": ["train", "ride_a_train"],
+        "northwestern_university_sailing_center": ["sailboat"]
+    }
 
     for key, value in objects.iteritems():
         if key in conditions:
@@ -253,22 +320,43 @@ def get_objects(conditions):
     return conditions
 
 
-def make_weather_request(curr_lat, curr_lon):
-    url = "http://api.openweathermap.org/data/2.5/weather?lat=" + str(curr_lat) + "&lon=" + str(
-        curr_lon) + "&appid=" + WEATHER_API_KEY
+def make_weather_request(lat, lng):
+    """
+    Makes a request to the weather API for the weather at the current location.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return: JSON response as dict from weather API for current weather at current location
+    """
+    url = "http://api.openweathermap.org/data/2.5/weather?lat=" + str(lat) + "&lon=" + str(lng) + \
+          "&appid=" + WEATHER_API_KEY
     response = (requests.get(url)).json()
     return response
 
 
-def make_forcast_request(curr_lat, curr_lon):
-    url = "http://api.openweathermap.org/data/2.5/forecast?lat=" + str(curr_lat) + "&lon=" + str(
-        curr_lon) + "&appid=" + WEATHER_API_KEY
+def make_forecast_request(lat, lng):
+    """
+    Makes a request to the weather API for the forecast at the current location.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return: JSON response as dict from weather API for current forecast at current location
+    """
+    url = "http://api.openweathermap.org/data/2.5/forecast?lat=" + str(lat) + "&lon=" + str(lng) + \
+          "&appid=" + WEATHER_API_KEY
     response = (requests.get(url)).json()
     return response
 
 
 def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):
-    """ return sunset, sunrise, daytime, or nighttime given values in utc """
+    """
+    Returns if current time is sunset, sunrise, daytime, or nighttime, given time values for each in utc.
+
+    :param current_in_utc: current time in UTC at user's location
+    :param sunrise_in_utc: sunrise time in UTC at user's location
+    :param sunset_in_utc: sunset time in UTC at user's location
+    :return: daylight state of user, given time, as string
+    """
     if abs(sunset_in_utc - current_in_utc) <= datetime.timedelta(minutes=25):
         return "sunset"
 
@@ -282,16 +370,29 @@ def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):
         return "nighttime"
 
 
-def get_local_time(curr_lat, curr_lon):
-    """ given a location, find the current local time in that time zone """
+def get_local_time(lat, lng):
+    """
+    Given a location, find the current local time in that time zone.
+
+    :param lat: latitude, as float
+    :param lng: longitude, as float
+    :return: current local time
+    """
     tf = TimezoneFinder()
-    tz = timezone(tf.timezone_at(lng=curr_lon, lat=curr_lat))
+    tz = timezone(tf.timezone_at(lng=lng, lat=lat))
     current_local = datetime.datetime.now(tz)
     return current_local
 
 
-def get_weather(curr_lat, curr_lon):
-    response = make_weather_request(curr_lat, curr_lon)
+def get_weather(lat, lng):
+    """
+    Get the weather for current latitude and longitude, and return as list.
+
+    :param lat: latitude, as float
+    :param lng: longitude, as float
+    :return: list with weather for the location
+    """
+    response = make_weather_request(lat, lng)
     weather = response["weather"][0]["main"]
     sunset = datetime.datetime.fromtimestamp(response["sys"]["sunset"])
     sunrise = datetime.datetime.fromtimestamp(response["sys"]["sunrise"])
@@ -300,13 +401,19 @@ def get_weather(curr_lat, curr_lon):
     sunrise_in_utc = sunrise.replace(tzinfo=utc)
     current_in_utc = datetime.datetime.now().replace(tzinfo=utc)
 
-    return [weather, period_of_day(current_in_utc, sunrise_in_utc,
-                                   sunset_in_utc)]
+    return [weather, period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc)]
 
 
-def get_weather_time_keyvalues(curr_lat, curr_lon):
-    forecast_response = make_forcast_request(curr_lat, curr_lon)
-    response = make_weather_request(curr_lat, curr_lon)
+def get_weather_time_keyvalues(lat, lng):
+    """
+    Get the weather for current latitude and longitude, and return as dict.
+
+    :param lat: latitude, as float
+    :param lng: longitude, as float
+    :return: dict with weather for the location
+    """
+    forecast_response = make_forecast_request(lat, lng)
+    response = make_weather_request(lat, lng)
 
     weather_tags_list = [weather["main"] for weather in response['weather']]
     kv = {weather_key: True for weather_key in weather_tags_list}
@@ -328,7 +435,7 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
                 kv["sunset_predicted_weather"] = "\"" + prediction["weather"][0]["main"].lower() + "\""
                 break
 
-    current_local = get_local_time(curr_lat, curr_lon)
+    current_local = get_local_time(lat, lng)
     kv["utc_offset"] = current_local.utcoffset().total_seconds() / 60 / 60
     kv["hour"] = current_local.hour
     kv["minute"] = current_local.minute
@@ -342,8 +449,15 @@ def get_weather_time_keyvalues(curr_lat, curr_lon):
     return kv
 
 
-def google_api(lat, lon):
-    query_result = google_places.nearby_search(lat_lng={"lat": lat, "lng": lon}, radius=20)
+def google_api(lat, lng):
+    """
+    Queries Google Places API for places near the latitude/longitude specified.
+
+    :param lat: latitude, as float
+    :param lng: longitude, as float
+    :return: list of places found in response, minus unnecessary things
+    """
+    query_result = google_places.nearby_search(lat_lng={"lat": lat, "lng": lng}, radius=20)
     info = []
     ignore = []  # ['route', 'locality', 'political']
     for place in query_result.places:
@@ -353,7 +467,17 @@ def google_api(lat, lon):
     return info
 
 
-def yelp_search(lat, lon, term, radius, category_type):
+def yelp_search(lat, lng, term, radius, category_type):
+    """
+    Queries Yelp API for places near the latitude/longitude specified and given a term.
+
+    :param lat: latitude, as float
+    :param lng: longitude, as float
+    :param term: location search term, as string
+    :param radius: radius to search within, as float
+    :param category_type: 'name' or 'alias', as string
+    :return: list of Yelp locations matching term within radius of location
+    """
     info = []
     params = {
         "radius_filter": radius,
@@ -362,7 +486,7 @@ def yelp_search(lat, lon, term, radius, category_type):
         "open_now": True,
         "term": term
     }
-    resp = yelp_client.search_by_coordinates(lat, lon, **params)
+    resp = yelp_client.search_by_coordinates(lat, lng, **params)
     if not resp.businesses:
         return []
     type_idx = {'name': 0, 'alias': 1}
@@ -370,15 +494,18 @@ def yelp_search(lat, lon, term, radius, category_type):
         name = b.name
         # print "we see " + name + " " + str(b.distance)
         if b.distance < radius:
-            print "adding" + name
+            print("adding" + name)
             categories = [c[type_idx[category_type]] for c in b.categories]
             info = info + categories + [name]
     return info
 
 
 def transform_name_to_variable(category_name):
-    """ this is neccessary to get the category names to align with the variables
-    that are created in affinder
+    """
+    Used to get the category names to align with the variables that are created in affinder.
+
+    :param category_name: name to reformat, as string
+    :return: reformatted name
     """
     return (category_name.replace('/', '_')
             .replace(' ', '_')
@@ -387,23 +514,42 @@ def transform_name_to_variable(category_name):
             .replace('(', '_')
             .replace(')', '_')
             .replace('-', '_')
-
             .lower())
 
 
 def test_transform_name_to_variable():
+    """
+    Testing for `transform_name_to_variable`.
+
+    :return: None
+    """
     assert transform_name_to_variable('Vietnamese') == 'vietnamese'
     assert transform_name_to_variable('ATV Rentals/Tours') == 'atv_rentals_tours'
     assert transform_name_to_variable('Hunting & Fishing Supplies') == 'hunting___fishing_supplies'
     assert transform_name_to_variable("May's Vietnamese Restaurant") == 'may_s_vietnamese_restaurant'
 
 
-def yelp_api_keyvalues(lat, lon, category_type='name'):
-    return {key: True for key in yelp_api(lat, lon, category_type)}
+def yelp_api_keyvalues(lat, lng, category_type='name'):
+    """
+    Queries Yelp API and returns output as dict.
+
+    :param lat: latitude, as float
+    :param lng: longitude, as float
+    :param category_type: 'name' or 'alias', as string
+    :return: dict of Yelp locations matching term within radius of location
+    """
+    return {key: True for key in yelp_api(lat, lng, category_type)}
 
 
-def local_places_keyvalues(lat, lon):
-    return {key: True for key in local_testing_spots(lat, lon)}
+def local_places_keyvalues(lat, lng):
+    """
+    Returns local locations, given latitude and longitude, as dict.
+
+    :param lat: latitude, as float
+    :param lng: longitude, as float
+    :return: dict of local locations
+    """
+    return {key: True for key in local_testing_spots(lat, lng)}
 
 
 if __name__ == '__main__':
