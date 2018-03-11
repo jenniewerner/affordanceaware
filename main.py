@@ -1,9 +1,6 @@
 from __future__ import print_function
 
 import datetime
-import math
-import json
-import uuid
 from os import environ
 from multiprocessing import Pool, cpu_count
 from multiprocessing.dummy import Pool as ThreadPool
@@ -189,31 +186,10 @@ def yelp_api(lat, lng, category_type):
     :return: list of yelp response
     """
     print("inside yelp!")
-    tags = []
-    affordances = []
-    names = []
-
-    params = {
-        "radius_filter": 40,
-        "limit": 3,
-        "sort_by": "distance",  # sort by distance
-    }
-    resp = yelp_client.search_by_coordinates(lat, lng, **params)
-    print("first pass")
-    print(resp)
-    info = []
-    if not resp.businesses:
-        print("no businesses")
-    type_idx = {'name': 0, 'alias': 1}
-    for b in resp.businesses:
-        name = b.name
-        print(name)
-        print(b.distance)
-        categories = [c[type_idx[category_type]] for c in b.categories]
-        info = info + categories + [name]
 
     # run additional searches
-    search_dicts = [{"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "grocery"},
+    search_dicts = [{"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": ""},  # initial query
+                    {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "grocery"},
                     {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "train"},
                     {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "cta"},
                     {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "bars"},
@@ -223,6 +199,7 @@ def yelp_api(lat, lng, category_type):
                     {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "religious"},
                     {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "sports club"}]
 
+    info = []
     if RUN_PARALLEL:
         pool = ThreadPool(cpu_count())
         results = pool.map(yelp_search_with_dict, search_dicts)
@@ -494,22 +471,31 @@ def yelp_search(lat, lng, term, radius, category_type):
     :param category_type: 'name' or 'alias', as string
     :return: list of Yelp locations matching term within radius of location
     """
-    info = []
+    # setup query params
     params = {
         "radius_filter": radius,
         "limit": 3,
-        "sort_by": "distance",  # sort by distance
-        "term": term
+        "sort_by": 1  # sort by distance
     }
+
+    if term != "":
+        params["term"] = term
+
+    # make query to yelp
     resp = yelp_client.search_by_coordinates(lat, lng, **params)
+
+    # check if no businesses were found
     if not resp.businesses:
         return []
+
+    # parse response if businesses were found
+    info = []
     type_idx = {'name': 0, 'alias': 1}
     for b in resp.businesses:
         name = b.name
-        # print "we see " + name + " " + str(b.distance)
-        if b.distance < radius:
-            print("adding" + name)
+        distance = b.distance
+        if distance < radius:
+            print("adding: {} at distance: {} from user".format(name, distance))
             categories = [c[type_idx[category_type]] for c in b.categories]
             info = info + categories + [name]
     return info
