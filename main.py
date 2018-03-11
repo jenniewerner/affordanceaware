@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import datetime
 from os import environ
-from sets import Set
 from multiprocessing import Pool, cpu_count
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -201,7 +200,7 @@ def yelp_api(lat, lng, category_type):
                     {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "sports club"}]
 
     # add to set to eliminate duplicates
-    info_set = Set()
+    info_set = set()
     if RUN_PARALLEL:
         pool = ThreadPool(cpu_count())
         results = pool.map(yelp_search_with_dict, search_dicts)
