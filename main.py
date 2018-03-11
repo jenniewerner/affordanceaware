@@ -5,6 +5,8 @@ import math
 import json
 import uuid
 from os import environ
+from multiprocessing import Pool, cpu_count
+from multiprocessing.dummy import Pool as ThreadPool
 
 import requests
 from flask import Flask, jsonify
@@ -47,6 +49,10 @@ firebase_config = {
     "databaseURL": "https://" + environ.get("FIREBASE_NAME") + ".firebaseio.com",
     "storageBucket": environ.get("FIREBASE_NAME") + ".appspot.com"
 }
+
+# check number of available CPUs
+RUN_PARALLEL = True
+print('CPU Count: {}, RUN_PARALLEL: {}'.format(cpu_count(), str(RUN_PARALLEL)))
 
 
 # routes
@@ -98,7 +104,6 @@ def get_search(cat):
         "radius_filter": 500,
         # "limit": 20,
         "sort": 1,  # sort by distance
-        # "open_now" : True,
     }
 
     resp = yelp_client.search_by_coordinates(42.046876, -87.679532, **params)
@@ -192,7 +197,6 @@ def yelp_api(lat, lng, category_type):
         "radius_filter": 40,
         "limit": 3,
         "sort_by": "distance",  # sort by distance
-        "open_now": True,
     }
     resp = yelp_client.search_by_coordinates(lat, lng, **params)
     print("first pass")
@@ -208,16 +212,26 @@ def yelp_api(lat, lng, category_type):
         categories = [c[type_idx[category_type]] for c in b.categories]
         info = info + categories + [name]
 
-    info = info + yelp_search(lat, lng, "grocery", 40, category_type, )
-    info = info + yelp_search(lat, lng, "train", 50, category_type)
-    info = info + yelp_search(lat, lng, "cta", 50, category_type)
+    # run additional searches
+    search_dicts = [{"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "grocery"},
+                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "train"},
+                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "cta"},
+                    {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "bars"},
+                    {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "library"},
+                    {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "climbing"},
+                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "cafeteria"},
+                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "religious"},
+                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "sports club"}]
 
-    info = info + yelp_search(lat, lng, "bars", 40, category_type)
-    info = info + yelp_search(lat, lng, "library", 40, category_type)
-    info = info + yelp_search(lat, lng, "climbing", 40, category_type)
-    info = info + yelp_search(lat, lng, "cafeteria", 50, category_type)
-    info = info + yelp_search(lat, lng, "religious", 50, category_type)
-    info = info + yelp_search(lat, lng, "sports club", 50, category_type)
+    if RUN_PARALLEL:
+        pool = ThreadPool(cpu_count())
+        results = pool.map(yelp_search_with_dict, search_dicts)
+
+        for result in results:
+            info = info + result
+    else:
+        for search_dict in search_dicts:
+            info = info + yelp_search_with_dict(search_dict)
 
     print(jsonify(info))
     return info
@@ -483,7 +497,6 @@ def yelp_search(lat, lng, term, radius, category_type):
         "radius_filter": radius,
         "limit": 3,
         "sort_by": "distance",  # sort by distance
-        "open_now": True,
         "term": term
     }
     resp = yelp_client.search_by_coordinates(lat, lng, **params)
@@ -498,6 +511,17 @@ def yelp_search(lat, lng, term, radius, category_type):
             categories = [c[type_idx[category_type]] for c in b.categories]
             info = info + categories + [name]
     return info
+
+
+def yelp_search_with_dict(search_dict):
+    """
+    Wrapper for `yelp_search` that allows for dict input. Primarily used to enable parallel execution.
+
+    :param search_dict: dict of lat, lng, term, radius, category_type to feed into yelp_search
+    :return: output from `yelp_search`
+    """
+    return yelp_search(search_dict["lat"], search_dict["lng"], search_dict["term"], search_dict["radius"],
+                       search_dict["category_type"])
 
 
 def transform_name_to_variable(category_name):
