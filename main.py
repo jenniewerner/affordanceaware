@@ -180,9 +180,9 @@ def local_testing_spots(lat, lng):
         {"lakes": (42.052460, -87.669876)},  # lakefill
         {"bars": (47.600759, -122.331817)},  # mccoy's
         {"parks": (47.724032, -122.337868)},  # ingraham
-        # {"library": (42.053046, -87.674814)},
-        # {"library": (42.053046, -87.674814)},
-        # {"library": (42.053046, -87.674814)},
+        {"parks": (42.056569, -87.677079)}, #shakespear near sheridan
+        {"parks": (42.059315, -87.675995)}, #frat grass
+        {"parks": (42.052750, -87.677229)} # deering street side again
 
     ]
 
