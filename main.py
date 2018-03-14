@@ -148,7 +148,7 @@ def local_testing_spots(lat, lng):
     """
     testing_spots = [
         {"cafeteria": (42.058813, -87.675602)},
-        {"park": (42.052460, -87.669876)},
+        {"parks": (42.052460, -87.669876)},
         # {"hackerspace": (42.056929, -87.676694)},
         # {"end_of_f_wing": (42.057472, -87.67662)},
         # {"atrium": (42.057323, -87.676164)},
@@ -182,8 +182,14 @@ def local_testing_spots(lat, lng):
         {"parks": (47.724032, -122.337868)},  # ingraham
         {"parks": (42.056569, -87.677079)}, #shakespear near sheridan
         {"parks": (42.059315, -87.675995)}, #frat grass
-        {"parks": (42.052750, -87.677229)} # deering street side again
-
+        {"parks": (42.052750, -87.677229)}, # deering street side again
+        {"parks": (42.053808, -87.678296)}, # foster
+        {"parks": (42.053881, -87.677290)}, # foster and sheridan
+        {"parks": (42.056257, -87.676201)}, # garrett
+        {"parks": (42.057223, -87.677239)}, # seabury
+        {"parks": (42.053893, -87.681738)}, # foster and sherman
+        {"parks": (42.055037, -87.679631)}, # library and orrington
+        {"parks": (42.057300, -87.679615)} # haven and orrington
     ]
 
     close_locations = []
