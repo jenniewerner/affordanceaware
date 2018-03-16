@@ -64,13 +64,15 @@ else:
 
 LOCATION_CACHE = LocationCache(MONGODB_URI, "affordance-aware", "LocationCache", threshold=CACHE_THRESHOLD)
 
-# check number of available CPUs
+# check number of available CPUs and setup ThreadPool
 RUN_PARALLEL = True
 CPU_COUNT = cpu_count() - 1  # leave one CPU free for other stuff so load isn't hitting 100% all the time
 
 if CPU_COUNT <= 0:
     CPU_COUNT = 1
 print('CPU Count: {}, RUN_PARALLEL: {}'.format(CPU_COUNT, str(RUN_PARALLEL)))
+
+INITIALIZED_THREADPOOL = ThreadPool(cpu_count())
 
 
 # routes
@@ -237,10 +239,7 @@ def yelp_api(lat, lng, category_type):
     # add to set to eliminate duplicates
     info_set = set()
     if RUN_PARALLEL:
-        pool = ThreadPool(CPU_COUNT)
-        results = pool.map(yelp_search_with_dict, search_dicts)
-        pool.close()
-        pool.join()
+        results = INITIALIZED_THREADPOOL.map(yelp_search_with_dict, search_dicts)
 
         for result in results:
             info_set.update(result)
