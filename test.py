@@ -25,7 +25,6 @@ import requests
 import sys
 import urllib
 
-
 # This client code can run on Python 2.x or 3.x.  Your imports can be
 # simpler if you only need one of those.
 try:
@@ -39,20 +38,17 @@ except ImportError:
     from urllib import quote
     from urllib import urlencode
 
-
 # Yelp Fusion no longer uses OAuth as of December 7, 2017.
 # You no longer need to provide Client ID to fetch Data
 # It now uses private keys to authenticate requests (API Key)
 # You can find it on
 # https://www.yelp.com/developers/v3/manage_app
-API_KEY= "_6KDP6qsJGkjherkNWSacZ9y3sonLJkBq4oghJ46-qeBN_KkzZZCUlw7JtvlEdNHD_QhgnvAIav6eYv7DBHdEaDlaBAalPEUav1jm8PxWjAsRnvtGzQMh9yJsYWIWnYx"
-
+API_KEY = "_6KDP6qsJGkjherkNWSacZ9y3sonLJkBq4oghJ46-qeBN_KkzZZCUlw7JtvlEdNHD_QhgnvAIav6eYv7DBHdEaDlaBAalPEUav1jm8PxWjAsRnvtGzQMh9yJsYWIWnYx"
 
 # API constants, you shouldn't have to change these.
 API_HOST = 'https://api.yelp.com'
 SEARCH_PATH = '/v3/businesses/search'
 BUSINESS_PATH = '/v3/businesses/'  # Business ID will come after slash.
-
 
 # Defaults for our simple example.
 DEFAULT_TERM = 'grocery'
@@ -146,8 +142,8 @@ def query_api(term, lat, lng):
     business_id = businesses[0]['id']
 
     print(u'{0} businesses found, querying business info ' \
-        'for the top result "{1}" ...'.format(
-            len(businesses), business_id))
+          'for the top result "{1}" ...'.format(
+        len(businesses), business_id))
     response = get_business(API_KEY, business_id)
 
     # print(u'Result for business "{0}" found:'.format(business_id))
