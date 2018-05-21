@@ -1,16 +1,17 @@
 # Affordance Aware API
-### Get affordances by location
-Make a GET request to the following URL:
+
+## Development
+We use [pipenv](https://github.com/pypa/pipenv) for managing package dependencies.
+
+1. Install pipenv using the link above.
+2. Run `pipenv install` to install package dependencies and `pipenv shell` to start virtual environment with installed dependencies.
+3. Run `python main.py` to start server and make requests to [http://0.0.0.0:5000/](http://0.0.0.0:5000/).
+
+## Usage
+When deployed, make a GET request to the following URL:
 ```
 https://affordanceaware.herokuapp.com/location_tags/<latitude>/<longitude>
 ```
-
-pip freeze > requirements.txt
-
-pip install -r requirements.txt
-
-create .evn file
-
 
 The request will return a JSON with the following fields:
 * affordances -- array of affordance
@@ -27,13 +28,11 @@ Supported location types include:
 * coffee shops
 * parks
 * gyms
-* resturants
+* restaurants
 
 Example query while at a coffee shop in the evening:
-```sh
-$ curl -i http://0.0.0.0:5000/location_tags/42.0582565/-87.6841178
 ```
-```
+GET https://affordanceaware.herokuapp.com/location_tags/42.0582565/-87.6841178
 {
   "affordances": [
     "eat",
@@ -53,5 +52,4 @@ $ curl -i http://0.0.0.0:5000/location_tags/42.0582565/-87.6841178
   "minutes": 6,
   "weather": "clear sky "
 }
-
 ```
