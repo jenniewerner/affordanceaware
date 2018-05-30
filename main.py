@@ -156,6 +156,10 @@ def get_categories_for_location(lat, lng):
                   'religiousorgs', 'sports_clubs']
     location_categories = YELP_API.fetch_all_locations(lat, lng, ','.join(categories), distance_threshold=60, radius=50)
 
+    # return empty categories if None and don't store in cache
+    if location_categories is None:
+        return []
+
     print("locations/categories from yelp: {}".format(location_categories))
 
     # add data to cache before returning
