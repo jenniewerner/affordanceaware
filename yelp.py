@@ -150,8 +150,8 @@ class Yelp(object):
             if not curr_dist <= radius:
                 continue
 
-            # add business name
-            curr_business_name = business['name']
+            # add business alias (semi-cleaned name by yelp)
+            curr_business_name = self.clean_string(business['alias'])
 
             print("adding: {} at distance: {} from user".format(curr_business_name, curr_dist))
             yelp_output.add(self.clean_string(curr_business_name))

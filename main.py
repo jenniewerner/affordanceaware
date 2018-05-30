@@ -152,7 +152,7 @@ def get_categories_for_location(lat, lng):
     print("Cache MISS...querying data from Yelp.")
 
     # query data from yelp
-    categories = ['grocery', 'trainstations', 'transport', 'bars', 'climbing', 'cafeteria',
+    categories = ['grocery', 'trainstations', 'transport', 'bars', 'climbing', 'cafeteria', 'libraries',
                   'religiousorgs', 'sports_clubs']
     location_categories = YELP_API.fetch_all_locations(lat, lng, ','.join(categories), distance_threshold=60, radius=50)
 
