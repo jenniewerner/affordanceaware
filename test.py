@@ -150,6 +150,18 @@ def query_api(term, lat, lng):
     pprint.pprint(response, indent=2)
 
 
+def test_transform_name_to_variable():
+    """
+    Testing for `transform_name_to_variable`.
+
+    :return: None
+    """
+    assert transform_name_to_variable('Vietnamese') == 'vietnamese'
+    assert transform_name_to_variable('ATV Rentals/Tours') == 'atv_rentals_tours'
+    assert transform_name_to_variable('Hunting & Fishing Supplies') == 'hunting___fishing_supplies'
+    assert transform_name_to_variable("May's Vietnamese Restaurant") == 'may_s_vietnamese_restaurant'
+
+
 def main():
     parser = argparse.ArgumentParser()
 
