@@ -28,8 +28,7 @@ cors = CORS(app, resources={r"/api": {"origins": "http://localhost:3000"}})
 google_places = GooglePlaces(environ.get("GOOGLE_KEY"))
 
 # setup yelp API
-PRIMARY_YELP_API_KEY = environ.get("PRIMARY_YELP_KEY")
-SECONDARY_YELP_API_KEY = environ.get("SECONDARY_YELP_KEY")
+YELP_API_KEY = environ.get("YELP_API_KEY")
 
 HARDCODED_LOCATION = [
         ("cafeteria", (42.058813, -87.675602)),
@@ -77,7 +76,7 @@ HARDCODED_LOCATION = [
         ("parks", (42.057300, -87.679615))               # haven and orrington
 ]
 
-YELP_API = Yelp(PRIMARY_YELP_API_KEY, hardcoded_locations=HARDCODED_LOCATION)
+YELP_API = Yelp(YELP_API_KEY, hardcoded_locations=HARDCODED_LOCATION)
 
 # get weather API key
 WEATHER_API_KEY = environ.get("WEATHER_KEY")
