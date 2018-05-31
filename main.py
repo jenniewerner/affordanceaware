@@ -179,7 +179,6 @@ def get_current_conditions(lat, lng):
     current_conditions = []
     current_conditions += get_weather(lat, lng)
     current_conditions += get_categories_for_location(lat, lng)
-    # current_conditions += google_api(lat, lng)
     current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
 
     get_objects(current_conditions)
@@ -197,7 +196,7 @@ def get_current_conditions_as_keyvalues(lat, lng):
     curr_conditions = {}
     curr_conditions.update(get_weather_time_keyvalues(lat, lng))
     curr_conditions.update(get_categories_for_location_keyvalues(lat, lng))
-    curr_conditions = {transform_name_to_variable(k): curr_conditions[k] for k in curr_conditions}
+    curr_conditions = {YELP_API.clean_string(k): curr_conditions[k] for k in curr_conditions}
     return curr_conditions
 
 
@@ -232,8 +231,9 @@ def make_weather_request(lat, lng):
     :param lng: longitude, as a float
     :return: JSON response as dict from weather API for current weather at current location
     """
-    url = "http://api.openweathermap.org/data/2.5/weather?lat=" + str(lat) + "&lon=" + str(lng) + \
-          "&appid=" + WEATHER_API_KEY
+    url = 'http://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}'.format(str(lat),
+                                                                                         str(lng),
+                                                                                         WEATHER_API_KEY)
     response = (requests.get(url)).json()
     return response
 
@@ -246,8 +246,9 @@ def make_forecast_request(lat, lng):
     :param lng: longitude, as a float
     :return: JSON response as dict from weather API for current forecast at current location
     """
-    url = "http://api.openweathermap.org/data/2.5/forecast?lat=" + str(lat) + "&lon=" + str(lng) + \
-          "&appid=" + WEATHER_API_KEY
+    url = 'http://api.openweathermap.org/data/2.5/forecast?lat={}&lon={}&appid={}'.format(str(lat),
+                                                                                          str(lng),
+                                                                                          WEATHER_API_KEY)
     response = (requests.get(url)).json()
     return response
 
@@ -369,23 +370,6 @@ def google_api(lat, lng):
             info += [place.name] + place.types
 
     return info
-
-
-def transform_name_to_variable(category_name):
-    """
-    Used to get the category names to align with the variables that are created in affinder.
-
-    :param category_name: name to reformat, as string
-    :return: reformatted name
-    """
-    return (category_name.replace('/', '_')
-            .replace(' ', '_')
-            .replace('&', '_')
-            .replace('\'', '_')
-            .replace('(', '_')
-            .replace(')', '_')
-            .replace('-', '_')
-            .lower())
 
 
 def get_categories_for_location_keyvalues(lat, lng):
