@@ -19,11 +19,9 @@ Sample usage of the program:
 from __future__ import print_function
 
 import argparse
-import json
 import pprint
 import requests
 import sys
-import urllib
 
 # This client code can run on Python 2.x or 3.x.  Your imports can be
 # simpler if you only need one of those.
