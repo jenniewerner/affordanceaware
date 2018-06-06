@@ -10,11 +10,11 @@ pytz = "*"
 timezonefinder = "*"
 python-google-places = "*"
 geopy = "*"
-yelp = "*"
 pymongo = "*"
 python-dotenv = "*"
+requests = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "2.7"
+python_version = "3"

@@ -5,6 +5,7 @@ from __future__ import absolute_import
 import datetime
 
 # application setup
+import requests
 from os import environ
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -17,7 +18,7 @@ from timezonefinder import TimezoneFinder
 from googleplaces import GooglePlaces
 
 # Modules
-from yelp import *
+from yelp import Yelp
 from location_cache import LocationCache
 
 # setup Flask app
@@ -152,7 +153,7 @@ def get_categories_for_location(lat, lng):
 
     # query data from yelp
     categories = ['grocery', 'trainstations', 'transport', 'bars', 'climbing', 'cafeteria', 'libraries',
-                  'religiousorgs', 'sports_clubs']
+                  'religiousorgs', 'sports_clubs', 'fitness']
     location_categories = YELP_API.fetch_all_locations(lat, lng, ','.join(categories), distance_threshold=60, radius=50)
 
     # return empty categories if None and don't store in cache
@@ -175,13 +176,17 @@ def get_current_conditions(lat, lng):
     :param lng: longitude, as a float
     :return: list of weather, yelp API response, and local locations
     """
+    # get current yelp and weather conditions
     current_conditions = []
     current_conditions += get_weather(lat, lng)
     current_conditions += get_categories_for_location(lat, lng)
-    current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
+    current_conditions = list(map(lambda x: x.lower(), list(set(current_conditions))))
 
-    get_objects(current_conditions)
-    return current_conditions
+    # get any custom affordances
+    custom_affordances = get_custom_affordances(current_conditions)
+
+    # return combined list, deduplicated
+    return list(set(current_conditions + custom_affordances))
 
 
 def get_current_conditions_as_keyvalues(lat, lng):
@@ -199,27 +204,26 @@ def get_current_conditions_as_keyvalues(lat, lng):
     return curr_conditions
 
 
-def get_objects(conditions):
+def get_custom_affordances(conditions):
     """
     Adds additional affordances to conditions if a match is found.
 
     :param conditions: list of conditions, as returned from `get_current_conditions`
     :return: list of conditions with additional affordances, if found
     """
-    objects = {
+    custom_affordances = {
         "beaches": ["waves", "build_a_sandcastle"],
         "northwestern_university_library": ["castle"],
         "coffee": ["chair", "sit_in_a_chair"],
         "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"],
         "hackerspace": ["computer", "relax_in_a_chair", "surf_the_interweb"],
-        "trainstations": ["train", "ride_a_train"],
-        "northwestern_university_sailing_center": ["sailboat"]
+        "train_stations": ["train", "ride_a_train"],
+        "northwestern_university_sailing_center_evanston": ["sailboat"]
     }
 
-    for key in objects:
-        if key in conditions:
-            conditions += objects[key]
-    return conditions
+    return [affordance_to_add
+            for key in custom_affordances
+            for affordance_to_add in custom_affordances[key] if key in conditions]
 
 
 def make_weather_request(lat, lng):
