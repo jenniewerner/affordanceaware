@@ -13,6 +13,7 @@ geopy = "*"
 pymongo = "*"
 python-dotenv = "*"
 requests = "*"
+gunicorn = "*"
 
 [dev-packages]
 
