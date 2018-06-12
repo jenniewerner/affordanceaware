@@ -1,25 +1,25 @@
 from __future__ import print_function
+from __future__ import absolute_import
 
+# misc imports
 import datetime
-from os import environ
-from multiprocessing import cpu_count
-from multiprocessing.dummy import Pool as ThreadPool
 
+# application setup
 import requests
+from os import environ
 from flask import Flask, jsonify
 from flask_cors import CORS
 
 # location and time imports
 from pytz import timezone, utc
 from timezonefinder import TimezoneFinder
-from geopy.distance import vincenty
-
-from location_cache import LocationCache
 
 # APIs
-from yelp.client import Client
-from yelp.oauth1_authenticator import Oauth1Authenticator
 from googleplaces import GooglePlaces
+
+# Modules
+from yelp import Yelp
+from location_cache import LocationCache
 
 # setup Flask app
 app = Flask(__name__)
@@ -29,25 +29,58 @@ cors = CORS(app, resources={r"/api": {"origins": "http://localhost:3000"}})
 google_places = GooglePlaces(environ.get("GOOGLE_KEY"))
 
 # setup yelp API
-yelp_auth = auth = Oauth1Authenticator(
-    consumer_key=environ.get("YELP_KEY"),
-    consumer_secret=environ.get("YELP_CSECRET"),
-    token=environ.get("YELP_TOKEN"),
-    token_secret=environ.get("YELP_TSECRET")
-)
+YELP_API_KEY = environ.get("YELP_API_KEY")
 
-yelp_client = Client(yelp_auth)
+HARDCODED_LOCATION = [
+        ("cafeteria", (42.058813, -87.675602)),
+        ("parks", (42.052460, -87.669876)),
+        # ("hackerspace", (42.056929, -87.676694)),
+        # ("end_of_f_wing", (42.057472, -87.67662)),
+        # ("atrium", (42.057323, -87.676164)),
+        # ("k_wing", (42.05745, -87.675085)),
+        # ("l_wing",(42.057809, -87.67611)),
+        ("grocery", (42.047691, -87.679189)),
+        ("grocery", (42.047691, -87.679189)),
+        ("grocery", (42.047874, -87.679489)),
+        ("gyms", (42.061293, -87.676620)),
+        ("train_stations", (42.058623, -87.683433)),
+        ("train_stations", (42.019285, -87.673238)),
+        ("libraries", (42.058141, -87.674490)),
+        ("field", (42.058364, -87.67089)),               # lakeside field
+        ("field", (42.053160, -87.677064)),              # deering meadow, street side
+        ("field", (42.053311, -87.675788)),              # deering meadow, university side
+        ("parks", (42.053192, -87.676967)),              # deering meadow
+        ("religious_schools", (42.056168, -87.675802)),
+        ("religious_schools", (42.050438, -87.677565)),  # alice millar
+        ("gyms", (42.054259, -87.678203)),               # blom
+        ("gyms", (42.059575, -87.672667)),               # spac
+        ("gyms", (42.059612, -87.673462)),               # spac
+        ("religious_schools", (42.053232, -87.677212)),
+        ("libraries", (42.053046, -87.674814)),
+        ("libraries", (42.053046, -87.674814)),
+        ("lakes", (47.671756, -122.344640)),             # greenlake
+        ("lakes", (47.681494, -122.341121)),             # greenlake
+        ("lakes", (47.680194, -122.327946)),             # greenlake
+        ("parks", (47.680194, -122.327946)),             # greenlake
+        ("lakes", (42.052460, -87.669876)),              # lakefill
+        ("bars", (47.600759, -122.331817)),              # mccoy's
+        ("parks", (47.724032, -122.337868)),             # ingraham
+        ("parks", (42.056569, -87.677079)),              # shakespeare garden near sheridan
+        ("parks", (42.059315, -87.675995)),              # frat grass
+        ("parks", (42.052750, -87.677229)),              # deering street side again
+        ("parks", (42.053808, -87.678296)),              # foster
+        ("parks", (42.053881, -87.677290)),              # foster and sheridan
+        ("parks", (42.056257, -87.676201)),              # garrett
+        ("parks", (42.057223, -87.677239)),              # seabury
+        ("parks", (42.053893, -87.681738)),              # foster and sherman
+        ("parks", (42.055037, -87.679631)),              # library and orrington
+        ("parks", (42.057300, -87.679615))               # haven and orrington
+]
+
+YELP_API = Yelp(YELP_API_KEY, hardcoded_locations=HARDCODED_LOCATION)
 
 # get weather API key
 WEATHER_API_KEY = environ.get("WEATHER_KEY")
-
-# setup firebase
-firebase_config = {
-    "apiKey": environ.get("FIREBASE_KEY"),
-    "authDomain": environ.get("FIREBASE_NAME") + ".firebaseapp.com",
-    "databaseURL": "https://" + environ.get("FIREBASE_NAME") + ".firebaseio.com",
-    "storageBucket": environ.get("FIREBASE_NAME") + ".appspot.com"
-}
 
 # setup connection to location cache
 MONGODB_URI = environ.get("MONGODB_URI")
@@ -64,23 +97,8 @@ else:
 
 LOCATION_CACHE = LocationCache(MONGODB_URI, "affordance-aware", "LocationCache", threshold=CACHE_THRESHOLD)
 
-# check number of available CPUs and setup ThreadPool
-RUN_PARALLEL = True
-CPU_COUNT = cpu_count() - 1  # leave one CPU free for other stuff so load isn't hitting 100% all the time
-
-if CPU_COUNT <= 0:
-    CPU_COUNT = 1
-print('CPU Count: {}, RUN_PARALLEL: {}'.format(CPU_COUNT, str(RUN_PARALLEL)))
-
-INITIALIZED_THREADPOOL = ThreadPool(cpu_count())
-
 
 # routes
-@app.route('/conditions/<string:lat>/<string:lng>', methods=['GET'])
-def get_conditions(lat, lng):
-    return []
-
-
 @app.route('/location_tags/<string:lat>/<string:lng>', methods=['GET'])
 def get_location_tags(lat, lng):
     """
@@ -111,111 +129,20 @@ def get_location_keyvalues(lat, lng):
     return jsonify(conditions)
 
 
-@app.route('/search/<string:cat>', methods=['GET'])
-def get_search(cat):
-    """
-    Searches for cat in Yelp.
-
-    :param cat: category to search for, as string
-    :return:
-    """
-    params = {
-        "term": cat,
-        "radius_filter": 500,
-        # "limit": 20,
-        "sort": 1,  # sort by distance
-    }
-
-    resp = yelp_client.search_by_coordinates(42.046876, -87.679532, **params)
-    info = []
-    if not resp.businesses:
-        return []
-    for b in resp.businesses:
-        name = b.name
-        name = name.replace(" ", "_")
-        categories = [c[1] for c in b.categories]
-        info = info + [name, categories]
-
-    return jsonify(info)
+@app.route("/")
+def hello():
+    return "Hello World!"
 
 
-@app.route('/local_testing/<string:lat>/<string:lng>', methods=['GET'])
-def local_testing_spots(lat, lng):
-    """
-    Search for local testing spots and return if matches.
-
-    :param lat: latitude, as a float
-    :param lng: longitude, as a float
-    :return:
-    """
-    testing_spots = [
-        {"cafeteria": (42.058813, -87.675602)},
-        {"parks": (42.052460, -87.669876)},
-        # {"hackerspace": (42.056929, -87.676694)},
-        # {"end_of_f_wing": (42.057472, -87.67662)},
-        # {"atrium": (42.057323, -87.676164)},
-        # {"k_wing": (42.05745, -87.675085)},
-        # {"l_wing":(42.057809, -87.67611)},
-        {"grocery": (42.047691, -87.679189)},
-        {"grocery": (42.047691, -87.679189)},
-        {"grocery": (42.047874, -87.679489)},
-        {"gyms": (42.061293, -87.676620)},
-        {"train_stations": (42.058623, -87.683433)},
-        {"train_stations": (42.019285, -87.673238)},
-        {"libraries": (42.058141, -87.674490)},
-        {"field": (42.058364, -87.67089)},  # lakeside field
-        {"field": (42.053160, -87.677064)},  # deering meadow, street side
-        {"field": (42.053311, -87.675788)},  # deering meadow, university side
-        {"parks": (42.053192, -87.676967)},  # deering meadow
-        {"religious_schools": (42.056168, -87.675802)},
-        {"religious_schools": (42.050438, -87.677565)},  # alice millar
-        {"gyms": (42.054259, -87.678203)},  # blom
-        {"gyms": (42.059575, -87.672667)},  # spac
-        {"gyms": (42.059612, -87.673462)},  # spac
-        {"religious_schools": (42.053232, -87.677212)},
-        {"libraries": (42.053046, -87.674814)},
-        {"libraries": (42.053046, -87.674814)},
-        {"lakes": (47.671756, -122.344640)},  # greenlake
-        {"lakes": (47.681494, -122.341121)},  # greenlake
-        {"lakes": (47.680194, -122.327946)},  # greenlake
-        {"parks": (47.680194, -122.327946)},  # greenlake
-        {"lakes": (42.052460, -87.669876)},  # lakefill
-        {"bars": (47.600759, -122.331817)},  # mccoy's
-        {"parks": (47.724032, -122.337868)},  # ingraham
-        {"parks": (42.056569, -87.677079)}, #shakespear near sheridan
-        {"parks": (42.059315, -87.675995)}, #frat grass
-        {"parks": (42.052750, -87.677229)}, # deering street side again
-        {"parks": (42.053808, -87.678296)}, # foster
-        {"parks": (42.053881, -87.677290)}, # foster and sheridan
-        {"parks": (42.056257, -87.676201)}, # garrett
-        {"parks": (42.057223, -87.677239)}, # seabury
-        {"parks": (42.053893, -87.681738)}, # foster and sherman
-        {"parks": (42.055037, -87.679631)}, # library and orrington
-        {"parks": (42.057300, -87.679615)} # haven and orrington
-    ]
-
-    close_locations = []
-    for loc in testing_spots:
-        dist = vincenty(loc.values()[0], (lat, lng)).meters
-        if dist < 60:
-            print(loc.keys()[0])
-            print(dist)
-            close_locations.append(loc.keys()[0])
-    return close_locations
-
-
-@app.route('/yelp/<string:lat>/<string:lng>', methods=['GET'])
-def yelp_api(lat, lng, category_type):
+# helper functions
+def get_categories_for_location(lat, lng):
     """
     Returns list of strings indicating the name of businesses and categories around the lat, lng
 
     :param lat: latitude, as a float
     :param lng: longitude, as a float
-    :param category_type: "alias" or "name", determines if 'Vietnamese' vs 'vietnamese' will be returned
     :return: list of yelp response
     """
-    print("inside yelp!")
-
     # check cache
     cached_location = LOCATION_CACHE.fetch_from_cache(lat, lng)
     if cached_location is not None:
@@ -224,79 +151,23 @@ def yelp_api(lat, lng, category_type):
 
     print("Cache MISS...querying data from Yelp.")
 
-    # run additional searches
-    search_dicts = [{"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": ""},  # initial query
-                    {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "grocery"},
-                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "train"},
-                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "cta"},
-                    {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "bars"},
-                    {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "library"},
-                    {"lat": lat, "lng": lng, "radius": 40, "category_type": category_type, "term": "climbing"},
-                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "cafeteria"},
-                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "religious"},
-                    {"lat": lat, "lng": lng, "radius": 50, "category_type": category_type, "term": "sports club"}]
+    # query data from yelp
+    categories = ['grocery', 'trainstations', 'transport', 'bars', 'climbing', 'cafeteria', 'libraries',
+                  'religiousorgs', 'sports_clubs', 'fitness']
+    location_categories = YELP_API.fetch_all_locations(lat, lng, ','.join(categories), distance_threshold=60, radius=50)
 
-    # add to set to eliminate duplicates
-    info_set = set()
-    if RUN_PARALLEL:
-        results = INITIALIZED_THREADPOOL.map(yelp_search_with_dict, search_dicts)
+    # return empty categories if None and don't store in cache
+    if location_categories is None:
+        return []
 
-        for result in results:
-            info_set.update(result)
-    else:
-        for search_dict in search_dicts:
-            search_output = yelp_search_with_dict(search_dict)
-            info_set.update(search_output)
-
-    # convert set to list before converting to json and returning
-    info_list = list(info_set)
-    print("locations/categories from yelp: {}".format(info_list))
+    print("locations/categories from yelp: {}".format(location_categories))
 
     # add data to cache before returning
-    LOCATION_CACHE.add_to_cache(lat, lng, info_list)
+    LOCATION_CACHE.add_to_cache(lat, lng, location_categories)
 
-    return info_list
-
-
-@app.route('/test_locations/<string:lat>/<string:lng>', methods=['GET'])
-def test_yelp(lat, lng):
-    """
-    Returns dict of strings indicating the name of businesses and categories around the lat, lng
-
-    :param lat: latitude, as a float
-    :param lng: longitude, as a float
-    :return: dict of yelp response
-    """
-    print("inside yelp!")
-    tags = []
-    affordances = []
-    names = []
-
-    params = {
-        "limit": 10,
-        "sort": 1,  # sort by distance
-    }
-    resp = yelp_client.search_by_coordinates(float(lat), float(lng), **params)
-    print(resp)
-    info = []
-    if not resp.businesses:
-        return []
-    for b in resp.businesses:
-        name = b.name
-        print(name)
-        categories = [c[1] for c in b.categories]
-        print(categories)
-        info = info + [[name] + categories]
-        print(info)
-    return jsonify(info)
+    return location_categories
 
 
-@app.route("/")
-def hello():
-    return "Hello World!"
-
-
-# helper functions
 def get_current_conditions(lat, lng):
     """
     Gets the user's current affordance state, given a latitude/longitude, and returns as an list.
@@ -305,15 +176,17 @@ def get_current_conditions(lat, lng):
     :param lng: longitude, as a float
     :return: list of weather, yelp API response, and local locations
     """
+    # get current yelp and weather conditions
     current_conditions = []
     current_conditions += get_weather(lat, lng)
-    current_conditions += yelp_api(lat, lng, category_type='alias')
-    current_conditions += local_testing_spots(lat, lng)
-    # current_conditions += google_api(lat, lng)
-    current_conditions = map(lambda x: x.lower(), list(set(current_conditions)))
+    current_conditions += get_categories_for_location(lat, lng)
+    current_conditions = list(map(lambda x: x.lower(), list(set(current_conditions))))
 
-    get_objects(current_conditions)
-    return current_conditions
+    # get any custom affordances
+    custom_affordances = get_custom_affordances(current_conditions)
+
+    # return combined list, deduplicated
+    return list(set(current_conditions + custom_affordances))
 
 
 def get_current_conditions_as_keyvalues(lat, lng):
@@ -326,33 +199,31 @@ def get_current_conditions_as_keyvalues(lat, lng):
     """
     curr_conditions = {}
     curr_conditions.update(get_weather_time_keyvalues(lat, lng))
-    curr_conditions.update(local_places_keyvalues(lat, lng))
-    curr_conditions.update(yelp_api_keyvalues(lat, lng))
-    curr_conditions = {transform_name_to_variable(k): v for (k, v) in curr_conditions.iteritems()}
+    curr_conditions.update(get_categories_for_location_keyvalues(lat, lng))
+    curr_conditions = {YELP_API.clean_string(k): curr_conditions[k] for k in curr_conditions}
     return curr_conditions
 
 
-def get_objects(conditions):
+def get_custom_affordances(conditions):
     """
     Adds additional affordances to conditions if a match is found.
 
     :param conditions: list of conditions, as returned from `get_current_conditions`
     :return: list of conditions with additional affordances, if found
     """
-    objects = {
+    custom_affordances = {
         "beaches": ["waves", "build_a_sandcastle"],
         "northwestern_university_library": ["castle"],
         "coffee": ["chair", "sit_in_a_chair"],
         "parks": ["trees", "grass", "frolick", "hug_a_tree", "pick_a_leaf"],
         "hackerspace": ["computer", "relax_in_a_chair", "surf_the_interweb"],
-        "trainstations": ["train", "ride_a_train"],
-        "northwestern_university_sailing_center": ["sailboat"]
+        "train_stations": ["train", "ride_a_train"],
+        "northwestern_university_sailing_center_evanston": ["sailboat"]
     }
 
-    for key, value in objects.iteritems():
-        if key in conditions:
-            conditions += value
-    return conditions
+    return [affordance_to_add
+            for key in custom_affordances
+            for affordance_to_add in custom_affordances[key] if key in conditions]
 
 
 def make_weather_request(lat, lng):
@@ -363,8 +234,9 @@ def make_weather_request(lat, lng):
     :param lng: longitude, as a float
     :return: JSON response as dict from weather API for current weather at current location
     """
-    url = "http://api.openweathermap.org/data/2.5/weather?lat=" + str(lat) + "&lon=" + str(lng) + \
-          "&appid=" + WEATHER_API_KEY
+    url = 'http://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}'.format(str(lat),
+                                                                                         str(lng),
+                                                                                         WEATHER_API_KEY)
     response = (requests.get(url)).json()
     return response
 
@@ -377,8 +249,9 @@ def make_forecast_request(lat, lng):
     :param lng: longitude, as a float
     :return: JSON response as dict from weather API for current forecast at current location
     """
-    url = "http://api.openweathermap.org/data/2.5/forecast?lat=" + str(lat) + "&lon=" + str(lng) + \
-          "&appid=" + WEATHER_API_KEY
+    url = 'http://api.openweathermap.org/data/2.5/forecast?lat={}&lon={}&appid={}'.format(str(lat),
+                                                                                          str(lng),
+                                                                                          WEATHER_API_KEY)
     response = (requests.get(url)).json()
     return response
 
@@ -398,7 +271,7 @@ def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):
     if abs(sunrise_in_utc - current_in_utc) <= datetime.timedelta(minutes=25):
         return "sunrise"
 
-    if sunset_in_utc > current_in_utc and sunrise_in_utc < current_in_utc:
+    if sunset_in_utc > current_in_utc > sunrise_in_utc:
         return "daytime"
 
     if sunset_in_utc < current_in_utc or sunrise_in_utc > current_in_utc:
@@ -502,109 +375,15 @@ def google_api(lat, lng):
     return info
 
 
-def yelp_search(lat, lng, term, radius, category_type):
+def get_categories_for_location_keyvalues(lat, lng):
     """
-    Queries Yelp API for places near the latitude/longitude specified and given a term.
+    Returns key:value pairs indicating the name of businesses and categories around the lat, lng where values are True.
 
     :param lat: latitude, as float
     :param lng: longitude, as float
-    :param term: location search term, as string
-    :param radius: radius to search within, as float
-    :param category_type: 'name' or 'alias', as string
-    :return: list of Yelp locations matching term within radius of location
-    """
-    # setup query params
-    params = {
-        "radius_filter": radius,
-        "limit": 3,
-        "sort_by": 1  # sort by distance
-    }
-
-    if term != "":
-        params["term"] = term
-
-    # make query to yelp
-    resp = yelp_client.search_by_coordinates(lat, lng, **params)
-
-    # check if no businesses were found
-    if not resp.businesses:
-        return []
-
-    # parse response if businesses were found
-    info = []
-    type_idx = {'name': 0, 'alias': 1}
-    for b in resp.businesses:
-        name = b.name
-        distance = b.distance
-        if distance < radius:
-            print("adding: {} at distance: {} from user".format(name, distance))
-            categories = [c[type_idx[category_type]] for c in b.categories]
-            info = info + categories + [name]
-
-    return info
-
-
-def yelp_search_with_dict(search_dict):
-    """
-    Wrapper for `yelp_search` that allows for dict input. Primarily used to enable parallel execution.
-
-    :param search_dict: dict of lat, lng, term, radius, category_type to feed into yelp_search
-    :return: output from `yelp_search`
-    """
-    return yelp_search(search_dict["lat"], search_dict["lng"], search_dict["term"], search_dict["radius"],
-                       search_dict["category_type"])
-
-
-def transform_name_to_variable(category_name):
-    """
-    Used to get the category names to align with the variables that are created in affinder.
-
-    :param category_name: name to reformat, as string
-    :return: reformatted name
-    """
-    return (category_name.replace('/', '_')
-            .replace(' ', '_')
-            .replace('&', '_')
-            .replace('\'', '_')
-            .replace('(', '_')
-            .replace(')', '_')
-            .replace('-', '_')
-            .lower())
-
-
-def test_transform_name_to_variable():
-    """
-    Testing for `transform_name_to_variable`.
-
-    :return: None
-    """
-    assert transform_name_to_variable('Vietnamese') == 'vietnamese'
-    assert transform_name_to_variable('ATV Rentals/Tours') == 'atv_rentals_tours'
-    assert transform_name_to_variable('Hunting & Fishing Supplies') == 'hunting___fishing_supplies'
-    assert transform_name_to_variable("May's Vietnamese Restaurant") == 'may_s_vietnamese_restaurant'
-
-
-def yelp_api_keyvalues(lat, lng, category_type='name'):
-    """
-    Queries Yelp API and returns output as dict.
-
-    :param lat: latitude, as float
-    :param lng: longitude, as float
-    :param category_type: 'name' or 'alias', as string
     :return: dict of Yelp locations matching term within radius of location
     """
-    return {key: True for key in yelp_api(lat, lng, category_type)}
-
-
-def local_places_keyvalues(lat, lng):
-    """
-    Returns local locations, given latitude and longitude, as dict.
-
-    :param lat: latitude, as float
-    :param lng: longitude, as float
-    :return: dict of local locations
-    """
-    return {key: True for key in local_testing_spots(lat, lng)}
+    return {key: True for key in get_categories_for_location(lat, lng)}
 
 
 if __name__ == '__main__':

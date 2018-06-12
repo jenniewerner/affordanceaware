@@ -19,11 +19,12 @@ Sample usage of the program:
 from __future__ import print_function
 
 import argparse
-import json
 import pprint
 import requests
 import sys
-import urllib
+
+from os import environ
+from yelp import Yelp
 
 # This client code can run on Python 2.x or 3.x.  Your imports can be
 # simpler if you only need one of those.
@@ -43,7 +44,7 @@ except ImportError:
 # It now uses private keys to authenticate requests (API Key)
 # You can find it on
 # https://www.yelp.com/developers/v3/manage_app
-API_KEY = "_6KDP6qsJGkjherkNWSacZ9y3sonLJkBq4oghJ46-qeBN_KkzZZCUlw7JtvlEdNHD_QhgnvAIav6eYv7DBHdEaDlaBAalPEUav1jm8PxWjAsRnvtGzQMh9yJsYWIWnYx"
+API_KEY = environ.get("YELP_API_KEY")
 
 # API constants, you shouldn't have to change these.
 API_HOST = 'https://api.yelp.com'
@@ -64,7 +65,7 @@ def request(host, path, api_key, url_params=None):
     Args:
         host (str): The domain host of the API.
         path (str): The path of the API after the domain.
-        API_KEY (str): Your API Key.
+        api_key (str): Your API Key.
         url_params (dict): An optional set of query parameters in the request.
 
     Returns:
@@ -90,19 +91,21 @@ def search(api_key, term, lat, lng):
     """Query the Search API by a search term and location.
 
     Args:
+        api_key (str): Your API Key.
         term (str): The search term passed to the API.
-        location (str): The search location passed to the API.
+        lat (float): latitude
+        lng (float): longitude
 
     Returns:
         dict: The JSON response from the request.
     """
-
     url_params = {
         'sort_by': 'distance',
         'latitude': lat,
         'longitude': lng,
         'limit': SEARCH_LIMIT,
         'radius': SEARCH_RADIUS,
+        'term': term
     }
     return request(API_HOST, SEARCH_PATH, api_key, url_params=url_params)
 
@@ -111,6 +114,7 @@ def get_business(api_key, business_id):
     """Query the Business API by a business ID.
 
     Args:
+        api_key (str): Your API Key.
         business_id (str): The ID of the business to query.
 
     Returns:
@@ -126,7 +130,8 @@ def query_api(term, lat, lng):
 
     Args:
         term (str): The search term to query.
-        location (str): The location of the business to query.
+        lat (float): latitude
+        lng (float): longitude
     """
     response = search(API_KEY, term, lat, lng)
 
@@ -141,13 +146,24 @@ def query_api(term, lat, lng):
 
     business_id = businesses[0]['id']
 
-    print(u'{0} businesses found, querying business info ' \
-          'for the top result "{1}" ...'.format(
-        len(businesses), business_id))
+    print(u'{0} businesses found, querying business info for the top result "{1}" ...'.format(len(businesses),
+                                                                                              business_id))
     response = get_business(API_KEY, business_id)
 
     # print(u'Result for business "{0}" found:'.format(business_id))
     pprint.pprint(response, indent=2)
+
+
+def test_transform_name_to_variable():
+    """
+    Testing for `transform_name_to_variable`.
+
+    :return: None
+    """
+    assert Yelp.clean_string('Vietnamese') == 'vietnamese'
+    assert Yelp.clean_string('ATV Rentals/Tours') == 'atv_rentals_tours'
+    assert Yelp.clean_string('Hunting & Fishing Supplies') == 'hunting___fishing_supplies'
+    assert Yelp.clean_string("May's Vietnamese Restaurant") == 'may_s_vietnamese_restaurant'
 
 
 def main():
