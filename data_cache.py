@@ -3,26 +3,29 @@ from pymongo import MongoClient, GEO2D
 from geopy.distance import vincenty
 
 
-class LocationCache(object):
+class DataCache(object):
     """
-    Maintains a connection to a location cache database, and a set of methods for interacting with that database.
+    Maintains a connection to a MongoDB database used for caching location-based data,
+    and a set of methods for interacting with that database.
 
     Attributes:
         mongo_uri: A string that tells what MongoDB to use for the location cache.
         db: DB to use.
         collection: Collection within DB where location data is stored.
-        threshold: A float that the nearest cache hit must be within.
+        distance_threshold: A float that the nearest cache hit must be within.
+        time_threshold: Longest time cache data is valid in database.
         client: Mongo client initialized with mongo_uri.
     """
 
-    def __init__(self, mongo_uri, db_name, collection_name, threshold=10.0):
+    def __init__(self, mongo_uri, db_name, collection_name, distance_threshold=10.0, time_threshold=60):
         """
         Returns a LocationCache object with class variables and mongo client initialized.
 
         :param mongo_uri: A string that tells what MongoDB to use for the location cache.
         :param db_name: A string indicating DB to use.
         :param collection_name: A string indicating collection to use.
-        :param threshold: A float that determine the distance the nearest cache entry must be within to hit, in meters.
+        :param distance_threshold: A float that determine the distance in meters the nearest cache entry must be within.
+        :param time_threshold: An int that specifies the longest data in the cache is valid for in minutes.
         """
         # setup DB related attributes
         self.mongo_uri = mongo_uri
@@ -31,10 +34,9 @@ class LocationCache(object):
         self.db = self.client[db_name]
         self.collection = self.db[collection_name]
 
-        # setup any other variables
-        self.threshold = threshold
-
-        print('LocationCache initialized.')
+        # setup distance and time thresholds for matching data point
+        self.distance_threshold = distance_threshold
+        self.time_threshold = time_threshold
 
     def fetch_from_cache(self, lat, lng):
         """
@@ -45,19 +47,30 @@ class LocationCache(object):
         :return: cached location as dict, or None
         """
         # setup index if it doesnt already exist
-        self.collection.create_index([("location", GEO2D)])
+        self.collection.create_index([('location', GEO2D)])
 
         # find nearest location
         nearest_cached_loc = self.collection.find_one({'location': {'$near': [lng, lat]}})
 
-        # if below threshold distance, return data. otherwise, return None
+        # check if valid cache object is returned
         if nearest_cached_loc is not None:
+            # compute distance to nearest cached object
             nearest_cached_loc_location = (nearest_cached_loc['location'][1], nearest_cached_loc['location'][0])
             dist_to_nearest = vincenty(nearest_cached_loc_location, (lat, lng)).meters
-            print("Distance to nearest cached location: {}".format(dist_to_nearest))
 
-            if dist_to_nearest < self.threshold:
+            # compute time diff between cached object and current time
+            current_date = datetime.datetime.utcnow()
+            time_delta_sec_to_nearest = (current_date - nearest_cached_loc['date']).total_seconds()
+            time_delta_mins_to_nearest = divmod(time_delta_sec_to_nearest, 60)[0]
+
+            # check if under distance and time thresholds
+            print('Nearest cached location: {} meters away, {} minutes ago.'.format(dist_to_nearest,
+                                                                                    time_delta_mins_to_nearest))
+
+            if dist_to_nearest < self.distance_threshold and time_delta_mins_to_nearest < self.time_threshold:
                 return nearest_cached_loc
+
+        # no valid cache object could be found
         return None
 
     def add_to_cache(self, lat, lng, yelp_location_info):
@@ -71,7 +84,7 @@ class LocationCache(object):
         """
         return self.collection.insert_one({
             'location': [lng, lat],  # longitude, latitude format
-            'yelp_info': yelp_location_info,
+            'data': yelp_location_info,
             'date': datetime.datetime.utcnow()
         }).inserted_id
 

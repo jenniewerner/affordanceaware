@@ -14,7 +14,7 @@ from timezonefinder import TimezoneFinder
 
 # Modules
 from yelp import Yelp
-from location_cache import LocationCache
+from data_cache import DataCache
 
 # setup Flask app
 app = Flask(__name__)
@@ -83,20 +83,30 @@ YELP_API = Yelp(YELP_API_KEY, hardcoded_locations=HARDCODED_LOCATION)
 # get weather API key
 WEATHER_API_KEY = environ.get("WEATHER_KEY")
 
-# setup connection to location cache
+# setup DB connection to cache
 MONGODB_URI = environ.get("MONGODB_URI")
 if MONGODB_URI is None or MONGODB_URI == "":
-    print("MONGODB_URI not specified. Falling back to localhost.")
+    print("MONGODB_URI not specified. Default to localhost.")
     MONGODB_URI = "mongodb://localhost:27017/"
 
-CACHE_THRESHOLD = environ.get("CACHE_THRESHOLD")
-if CACHE_THRESHOLD is None:
-    print("CACHE_THRESHOLD not specified. Falling back to 10.0 meters.")
-    CACHE_THRESHOLD = 10.0
+# get configuration variables for Yelp cache
+YELP_CACHE_DISTANCE_THRESHOLD = environ.get("YELP_CACHE_DISTANCE_THRESHOLD")
+if YELP_CACHE_DISTANCE_THRESHOLD is None:
+    YELP_CACHE_DISTANCE_THRESHOLD = 10.0
+    print("YELP_CACHE_DISTANCE_THRESHOLD not specified. Default to {} meters.".format(YELP_CACHE_DISTANCE_THRESHOLD))
 else:
-    CACHE_THRESHOLD = float(CACHE_THRESHOLD)
+    YELP_CACHE_DISTANCE_THRESHOLD = float(YELP_CACHE_DISTANCE_THRESHOLD)
 
-LOCATION_CACHE = LocationCache(MONGODB_URI, "affordance-aware", "LocationCache", threshold=CACHE_THRESHOLD)
+YELP_CACHE_TIME_THRESHOLD = environ.get("YELP_CACHE_TIME_THRESHOLD")
+if YELP_CACHE_TIME_THRESHOLD is None:
+    YELP_CACHE_TIME_THRESHOLD = 10080  # 1 week
+    print("YELP_CACHE_TIME_THRESHOLD not specified. Default to {} minutes.".format(YELP_CACHE_TIME_THRESHOLD))
+else:
+    YELP_CACHE_TIME_THRESHOLD = float(YELP_CACHE_TIME_THRESHOLD)
+
+YELP_CACHE = DataCache(MONGODB_URI, "affordance-aware", "LocationCache",
+                       distance_threshold=YELP_CACHE_DISTANCE_THRESHOLD,
+                       time_threshold=YELP_CACHE_TIME_THRESHOLD)
 
 
 # routes
@@ -145,9 +155,9 @@ def get_current_conditions(lat, lng):
     """
     # get weather, yelp, and any custom affordances
     current_conditions = []
-    current_conditions += get_weather_time(lat, lng)  # current weather conditions
-    current_conditions += get_categories_for_location(lat, lng)  # current yelp conditions
-    current_conditions += get_custom_affordances(current_conditions)  # custom affordances
+    current_conditions += get_weather_time(lat, lng)[0]                  # current list of weather conditions
+    current_conditions += get_categories_for_location(lat, lng)[0]       # current list of yelp conditions
+    current_conditions += get_custom_affordances(current_conditions)[0]  # custom list of affordances
 
     # cleanup and deduplicate before returning
     return list({current_affordance.lower() for current_affordance in current_conditions})
@@ -161,11 +171,15 @@ def get_current_conditions_as_keyvalues(lat, lng):
     :param lng: longitude, as a float
     :return: dict of weather, yelp API response, and local locations
     """
+    # fetch data
+    weather_time_affordances = get_weather_time(lat, lng)
+    yelp_affordances = get_categories_for_location(lat, lng)
+    custom_affordances = get_custom_affordances(weather_time_affordances[0] + yelp_affordances[0])
+
     curr_conditions = {}
-    curr_conditions.update(get_weather_time(lat, lng, keyvalue=True))
-    curr_conditions.update(get_categories_for_location(lat, lng, keyvalue=True))
-    curr_conditions.update(get_custom_affordances(get_weather_time(lat, lng) + get_categories_for_location(lat, lng),
-                           keyvalue=True))
+    curr_conditions.update(weather_time_affordances[1])
+    curr_conditions.update(yelp_affordances[1])
+    curr_conditions.update(custom_affordances[1])
     curr_conditions = {YELP_API.clean_string(k): v for k, v in curr_conditions.items()}
 
     # TODO: make each value a list where each is [time_before_execution, value]
@@ -174,22 +188,21 @@ def get_current_conditions_as_keyvalues(lat, lng):
 
 
 # location helper functions
-def get_categories_for_location(lat, lng, keyvalue=False):
+def get_categories_for_location(lat, lng):
     """
     Returns list of strings indicating the name of businesses and categories around the lat, lng
 
     :param lat: latitude, as a float
     :param lng: longitude, as a float
-    :param keyvalue: optional boolean, whether to return as key-value dict
-    :return: list or key-value dict of yelp response, based on keyvalue  param
+    :return: tuple of (list, key-value dict) of yelp response
     """
     output_list = []
 
     # check cache, if not there then query from yelp
-    cached_location = LOCATION_CACHE.fetch_from_cache(lat, lng)
+    cached_location = YELP_CACHE.fetch_from_cache(lat, lng)
     if cached_location is not None:
         print("Cache HIT...returning cached data.")
-        output_list = cached_location['yelp_info']
+        output_list = cached_location['data']
     else:
         print("Cache MISS...querying data from Yelp.")
 
@@ -206,25 +219,21 @@ def get_categories_for_location(lat, lng, keyvalue=False):
             print("locations/categories from yelp: {}".format(location_categories))
 
             # add data to cache
-            LOCATION_CACHE.add_to_cache(lat, lng, location_categories)
+            YELP_CACHE.add_to_cache(lat, lng, location_categories)
 
             # set output list
             output_list = location_categories
 
-    # return output as either list or key values
-    if keyvalue:
-        return {key: True for key in output_list}
-
-    return output_list
+    # return output tuple
+    return output_list, {key: True for key in output_list}
 
 
-def get_custom_affordances(conditions, keyvalue=False):
+def get_custom_affordances(conditions):
     """
     Adds additional affordances to conditions if a match is found.
 
     :param conditions: list of conditions, as returned from `get_current_conditions`
-    :param keyvalue: optional boolean, whether to return as key-value dict
-    :return: list or key-value dict of conditions with additional affordances, if found, based on keyvalue param
+    :return: tuple of (list, key-value dict) of conditions with additional affordances, if found
     """
     custom_affordances = {
         "beaches": ["waves", "build_a_sandcastle"],
@@ -240,22 +249,18 @@ def get_custom_affordances(conditions, keyvalue=False):
                                 for key in custom_affordances
                                 for affordance_to_add in custom_affordances[key] if key in conditions]
 
-    # return list or dict based on keyvalue
-    if keyvalue:
-        return {key: True for key in found_custom_affordances}
-
-    return found_custom_affordances
+    # return output tuple
+    return found_custom_affordances, {key: True for key in found_custom_affordances}
 
 
 # weather and time-based helper functions
-def get_weather_time(lat, lng, keyvalue=False):
+def get_weather_time(lat, lng):
     """
     Get the weather for current latitude and longitude, and return as list.
 
     :param lat: latitude, as float
     :param lng: longitude, as float
-    :param keyvalue: optional boolean, whether to return as key-value dict
-    :return: list with weather for the location
+    :return: tuple of (list, key-value dict) of weather for the location
     """
     # make weather request and parse response
     weather_resp = make_weather_request(lat, lng)
@@ -287,27 +292,24 @@ def get_weather_time(lat, lng, keyvalue=False):
                 forecast_sunset += '{}'.format(prediction["weather"][0]["main"].lower())
                 break
 
-    # create and return dict if keyvalue
-    if keyvalue:
-        output_dict = {}
+    # create key-value output
+    output_dict = {}
 
-        # weather, forecast, and time of day
-        output_dict.update({weather_key: True for weather_key in weather_features})
-        output_dict['sunset_predicted_weather'] = forecast_sunset
-        output_dict[period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc)] = True
+    # weather, forecast, and time of day
+    output_dict.update({weather_key: True for weather_key in weather_features})
+    output_dict['sunset_predicted_weather'] = forecast_sunset
+    output_dict[period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc)] = True
 
-        # specific time variables
-        output_dict['utc_offset'] = current_local.utcoffset().total_seconds() / 60 / 60
-        output_dict['hour'] = current_local.hour
-        output_dict['minute'] = current_local.minute
-        output_dict['sunset_time_minutes'] = sunset.minute
-        output_dict[current_local.tzinfo.zone] = True  # 'America/Chicago': True
-        output_dict[current_day] = True  # 'wednesday': True
+    # specific time variables
+    output_dict['utc_offset'] = current_local.utcoffset().total_seconds() / 60 / 60
+    output_dict['hour'] = current_local.hour
+    output_dict['minute'] = current_local.minute
+    output_dict['sunset_time_minutes'] = sunset.minute
+    output_dict[current_local.tzinfo.zone] = True  # 'America/Chicago': True
+    output_dict[current_day] = True  # 'wednesday': True
 
-        return output_dict
-
-    # return list, containing only current weather features and current day
-    return weather_features + [current_day]
+    # return output tuple
+    return weather_features + [current_day], output_dict
 
 
 def make_weather_request(lat, lng):
