@@ -44,7 +44,7 @@ class DataCache(object):
 
         :param lat: Latitude of location, as float.
         :param lng: Longitude of location, as float.
-        :return: cached location as dict, or None
+        :return: tuple of (dict, bool) where dict is cached location (or None) and bool is whether location is valid
         """
         # setup index if it doesnt already exist
         self.collection.create_index([('location', GEO2D)])
@@ -63,30 +63,51 @@ class DataCache(object):
             time_delta_sec_to_nearest = (current_date - nearest_cached_loc['date']).total_seconds()
             time_delta_mins_to_nearest = divmod(time_delta_sec_to_nearest, 60)[0]
 
-            # check if under distance and time thresholds
             print('Nearest cached location: {} meters away, {} minutes ago.'.format(dist_to_nearest,
                                                                                     time_delta_mins_to_nearest))
 
-            if dist_to_nearest < self.distance_threshold and time_delta_mins_to_nearest < self.time_threshold:
-                return nearest_cached_loc
+            # cache is valid if within distance
+            if dist_to_nearest < self.distance_threshold:
+                # return cache object iff valid AND within time threshold
+                if time_delta_mins_to_nearest < self.time_threshold:
+                    return nearest_cached_loc, True
+                else:
+                    return nearest_cached_loc, False
 
         # no valid cache object could be found
-        return None
+        return None, False
 
-    def add_to_cache(self, lat, lng, yelp_location_info):
+    def add_to_cache(self, lat, lng, data_to_save):
         """
         Adds location to cache.
 
         :param lat: Latitude of location, as float.
         :param lng: Longitude of location, as float.
-        :param yelp_location_info: Information pulled from yelp for location, as list
+        :param data_to_save: Data to save for location, as list
         :return: inserted id of document, if successful
         """
         return self.collection.insert_one({
             'location': [lng, lat],  # longitude, latitude format
-            'data': yelp_location_info,
+            'data': data_to_save,
             'date': datetime.datetime.utcnow()
         }).inserted_id
+
+    def update_cache(self, object_id, new_data_to_save):
+        """
+        Updates existing location in cache.
+
+        :param object_id: Id of object to update, as ObjectId
+        :param new_data_to_save: Data to save for location, as list
+        :return: inserted id of document, if successful
+        """
+        return self.collection.update_one({
+            '_id': object_id
+        }, {
+            '$set': {
+                'data': new_data_to_save,
+                'date': datetime.datetime.utcnow()
+            }
+        }, upsert=True)
 
 
 if __name__ == 'main':

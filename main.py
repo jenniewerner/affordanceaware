@@ -99,14 +99,34 @@ else:
 
 YELP_CACHE_TIME_THRESHOLD = environ.get("YELP_CACHE_TIME_THRESHOLD")
 if YELP_CACHE_TIME_THRESHOLD is None:
-    YELP_CACHE_TIME_THRESHOLD = 10080  # 1 week
+    YELP_CACHE_TIME_THRESHOLD = 1.0 # 10080  # 1 week
     print("YELP_CACHE_TIME_THRESHOLD not specified. Default to {} minutes.".format(YELP_CACHE_TIME_THRESHOLD))
 else:
     YELP_CACHE_TIME_THRESHOLD = float(YELP_CACHE_TIME_THRESHOLD)
 
+# get configuration variables for Weather cache
+WEATHER_CACHE_DISTANCE_THRESHOLD = environ.get("WEATHER_CACHE_DISTANCE_THRESHOLD")
+if WEATHER_CACHE_DISTANCE_THRESHOLD is None:
+    WEATHER_CACHE_DISTANCE_THRESHOLD = 16000.0  # 16 kilometers = 10 miles
+    print("WEATHER_CACHE_DISTANCE_THRESHOLD not specified. Default to {} meters.".format(WEATHER_CACHE_DISTANCE_THRESHOLD))
+else:
+    WEATHER_CACHE_DISTANCE_THRESHOLD = float(WEATHER_CACHE_DISTANCE_THRESHOLD)
+
+WEATHER_CACHE_TIME_THRESHOLD = environ.get("WEATHER_CACHE_TIME_THRESHOLD")
+if WEATHER_CACHE_TIME_THRESHOLD is None:
+    WEATHER_CACHE_TIME_THRESHOLD = 30  # 30 minutes
+    print("WEATHER_CACHE_TIME_THRESHOLD not specified. Default to {} minutes.".format(WEATHER_CACHE_TIME_THRESHOLD))
+else:
+    WEATHER_CACHE_TIME_THRESHOLD = float(WEATHER_CACHE_TIME_THRESHOLD)
+
+# initialize caches
 YELP_CACHE = DataCache(MONGODB_URI, "affordance-aware", "LocationCache",
                        distance_threshold=YELP_CACHE_DISTANCE_THRESHOLD,
                        time_threshold=YELP_CACHE_TIME_THRESHOLD)
+
+WEATHER_CACHE = DataCache(MONGODB_URI, "affordance-aware", "WeatherCache",
+                          distance_threshold=WEATHER_CACHE_DISTANCE_THRESHOLD,
+                          time_threshold=WEATHER_CACHE_TIME_THRESHOLD)
 
 
 # routes
@@ -199,33 +219,60 @@ def get_categories_for_location(lat, lng):
     output_list = []
 
     # check cache, if not there then query from yelp
-    cached_location = YELP_CACHE.fetch_from_cache(lat, lng)
+    cached_location, valid_cache_location = YELP_CACHE.fetch_from_cache(lat, lng)
+
     if cached_location is not None:
-        print("Cache HIT...returning cached data.")
-        output_list = cached_location['data']
+        if valid_cache_location:
+            print("VALID Cache HIT...returning cached data.")
+            output_list = cached_location['data']
+        else:
+            print("INVALID Cache HIT...querying data from Yelp.")
+
+            # get data and update cache if valid
+            location_categories = fetch_yelp_data(lat, lng)
+            print("locations/categories from yelp: {}".format(location_categories))
+
+            # add data to cache
+            YELP_CACHE.update_cache(cached_location['_id'], location_categories)
+
+            # set output list
+            output_list = location_categories
     else:
         print("Cache MISS...querying data from Yelp.")
 
         # query data from yelp
-        categories = ['grocery', 'trainstations', 'transport', 'bars', 'climbing', 'cafeteria', 'libraries',
-                      'religiousorgs', 'sports_clubs', 'fitness']
-        location_categories = YELP_API.fetch_all_locations(lat, lng, ','.join(categories),
-                                                           distance_threshold=60, radius=50)
+        location_categories = fetch_yelp_data(lat, lng)
+        print("locations/categories from yelp: {}".format(location_categories))
 
-        #  if request returns None, don't store in cache and output is empty list
-        if location_categories is None:
-            output_list = []
-        else:
-            print("locations/categories from yelp: {}".format(location_categories))
+        # add data to cache
+        YELP_CACHE.add_to_cache(lat, lng, location_categories)
 
-            # add data to cache
-            YELP_CACHE.add_to_cache(lat, lng, location_categories)
-
-            # set output list
-            output_list = location_categories
+        # set output list
+        output_list = location_categories
 
     # return output tuple
     return output_list, {key: True for key in output_list}
+
+
+def fetch_yelp_data(lat, lng):
+    """
+    Returns data from Yelp as a list, given at latitude and longitude.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return: list of Yelp responses, empty if nothing is returned
+    """
+    # query data from yelp
+    categories = ['grocery', 'trainstations', 'transport', 'bars', 'climbing', 'cafeteria', 'libraries',
+                  'religiousorgs', 'sports_clubs', 'fitness']
+    location_categories = YELP_API.fetch_all_locations(lat, lng, ','.join(categories),
+                                                       distance_threshold=60, radius=50)
+
+    #  if request returns None, return empty list
+    if location_categories is None:
+        return []
+
+    return location_categories
 
 
 def get_custom_affordances(conditions):
