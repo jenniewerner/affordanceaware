@@ -107,14 +107,8 @@ if WEATHER_CACHE_TIME_THRESHOLD is None:
 else:
     WEATHER_CACHE_TIME_THRESHOLD = float(WEATHER_CACHE_TIME_THRESHOLD)
 
-# initialize caches
-YELP_CACHE = DataCache(MONGODB_URI, "affordance-aware", "LocationCache",
-                       distance_threshold=YELP_CACHE_DISTANCE_THRESHOLD,
-                       time_threshold=YELP_CACHE_TIME_THRESHOLD)
-
-WEATHER_CACHE = DataCache(MONGODB_URI, "affordance-aware", "WeatherCache",
-                          distance_threshold=WEATHER_CACHE_DISTANCE_THRESHOLD,
-                          time_threshold=WEATHER_CACHE_TIME_THRESHOLD)
+# initialize data cache
+DATA_CACHE = DataCache(MONGODB_URI, "affordance-aware")
 
 
 # routes
@@ -203,7 +197,9 @@ def get_categories_for_location(lat, lng):
     :return: tuple of (list, key-value dict) of yelp response
     """
     # check cache, if not there then query from yelp
-    cached_location, valid_cache_location = YELP_CACHE.fetch_from_cache(lat, lng)
+    cached_location, valid_cache_location = DATA_CACHE.fetch_from_cache('LocationCache', lat, lng,
+                                                                        YELP_CACHE_DISTANCE_THRESHOLD,
+                                                                        YELP_CACHE_TIME_THRESHOLD)
 
     # check validity of cache
     if cached_location is not None:
@@ -222,9 +218,9 @@ def get_categories_for_location(lat, lng):
 
     # add/update to cache depending on if object previously existed in cache
     if cached_location is None:
-        YELP_CACHE.add_to_cache(lat, lng, location_categories)
+        DATA_CACHE.add_to_cache('LocationCache', lat, lng, location_categories)
     else:
-        YELP_CACHE.update_cache(cached_location['_id'], location_categories)
+        DATA_CACHE.update_cache('LocationCache', cached_location['_id'], location_categories)
 
     # return output tuple
     return location_categories, {key: True for key in location_categories}
@@ -286,7 +282,9 @@ def get_weather_data(lat, lng):
     :return: dict with keys 'weather' and 'forecast' with lists containing current weather and forecast responses.
     """
     # check cache, if not there then query from weather api
-    cached_location, valid_cache_location = WEATHER_CACHE.fetch_from_cache(lat, lng)
+    cached_location, valid_cache_location = DATA_CACHE.fetch_from_cache('WeatherCache', lat, lng,
+                                                                        WEATHER_CACHE_DISTANCE_THRESHOLD,
+                                                                        WEATHER_CACHE_TIME_THRESHOLD)
 
     # check validity of cached location
     if cached_location is not None:
@@ -317,9 +315,9 @@ def get_weather_data(lat, lng):
 
     # update/add to cache as needed
     if cached_location is None:
-        WEATHER_CACHE.add_to_cache(lat, lng, weather_forecast_dict)
+        DATA_CACHE.add_to_cache('WeatherCache', lat, lng, weather_forecast_dict)
     else:
-        WEATHER_CACHE.update_cache(cached_location['_id'], weather_forecast_dict)
+        DATA_CACHE.update_cache('WeatherCache', cached_location['_id'], weather_forecast_dict)
 
     # return weather/forecast dict
     return weather_forecast_dict
