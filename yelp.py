@@ -1,5 +1,5 @@
 """
-This module acts as a class wrapper for querying yelp.
+This module is a class wrapper for the Yelp API.
 """
 from __future__ import print_function
 from __future__ import absolute_import
@@ -14,6 +14,7 @@ class Yelp(object):
 
     Attributes:
         header (dict): header for querying using yelp API key.
+        hardcoded_locations (list): tuples of (location string, (latitude, longitude)) hardcoded locations to match on.
     """
 
     def __init__(self, api_key, hardcoded_locations=None):
@@ -127,7 +128,7 @@ class Yelp(object):
             List of all categories: https://www.yelp.com/developers/documentation/v3/all_category_list
         :param distance_threshold: optional float for how close lat, lng must be to hardcoded location
         :param radius: optional int radius to determine area around lat, lng to query for.
-        :return: categores and locations, cleaned using clean_string, if responses were successful. None otherwise.
+        :return: categories and locations, cleaned using clean_string, if responses were successful. None otherwise.
         """
         # attempt to make yelp request
         yelp_generic_resp = self.yelp_search(self.header, lat, lng,

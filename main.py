@@ -2,7 +2,6 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 # application setup
-import requests
 from os import environ
 from flask import Flask, jsonify
 from flask_cors import CORS
@@ -14,6 +13,7 @@ from timezonefinder import TimezoneFinder
 
 # Modules
 from yelp import Yelp
+from weather import Weather
 from data_cache import DataCache
 
 # setup Flask app
@@ -21,8 +21,6 @@ app = Flask(__name__)
 cors = CORS(app, resources={r"/api": {"origins": "http://localhost:3000"}})
 
 # setup yelp API
-YELP_API_KEY = environ.get("YELP_API_KEY")
-
 HARDCODED_LOCATION = [
         ("cafeteria", (42.058813, -87.675602)),
         ("parks", (42.052460, -87.669876)),
@@ -68,20 +66,10 @@ HARDCODED_LOCATION = [
         ("parks", (42.055037, -87.679631)),              # library and orrington
         ("parks", (42.057300, -87.679615))               # haven and orrington
 ]
+YELP_API = Yelp(environ.get("YELP_API_KEY"), hardcoded_locations=HARDCODED_LOCATION)
 
-# setup notification interval in seconds
-DEFAULT_WEATHER_INTERVAL = 0 * 60
-DEFAULT_LOCATION_INTERVAL = 5 * 60
-CUSTOM_INTERVALS = [
-    (0, {'parks'}),
-    (5 * 60, {}),
-    (10 * 60, {'grocery'})
-]
-
-YELP_API = Yelp(YELP_API_KEY, hardcoded_locations=HARDCODED_LOCATION)
-
-# get weather API key
-WEATHER_API_KEY = environ.get("WEATHER_KEY")
+# setup weather API
+WEATHER_API = Weather(environ.get("WEATHER_KEY"))
 
 # setup DB connection to cache
 MONGODB_URI = environ.get("MONGODB_URI")
@@ -99,7 +87,7 @@ else:
 
 YELP_CACHE_TIME_THRESHOLD = environ.get("YELP_CACHE_TIME_THRESHOLD")
 if YELP_CACHE_TIME_THRESHOLD is None:
-    YELP_CACHE_TIME_THRESHOLD = 1.0 # 10080  # 1 week
+    YELP_CACHE_TIME_THRESHOLD = 10080  # 1 week
     print("YELP_CACHE_TIME_THRESHOLD not specified. Default to {} minutes.".format(YELP_CACHE_TIME_THRESHOLD))
 else:
     YELP_CACHE_TIME_THRESHOLD = float(YELP_CACHE_TIME_THRESHOLD)
@@ -175,7 +163,7 @@ def get_current_conditions(lat, lng):
     """
     # get weather, yelp, and any custom affordances
     current_conditions = []
-    current_conditions += get_weather_time(lat, lng)[0]                  # current list of weather conditions
+    current_conditions += compute_weather_time_affordances(lat, lng)[0]  # current weather/time affordances
     current_conditions += get_categories_for_location(lat, lng)[0]       # current list of yelp conditions
     current_conditions += get_custom_affordances(current_conditions)[0]  # custom list of affordances
 
@@ -192,7 +180,7 @@ def get_current_conditions_as_keyvalues(lat, lng):
     :return: dict of weather, yelp API response, and local locations
     """
     # fetch data
-    weather_time_affordances = get_weather_time(lat, lng)
+    weather_time_affordances = compute_weather_time_affordances(lat, lng)
     yelp_affordances = get_categories_for_location(lat, lng)
     custom_affordances = get_custom_affordances(weather_time_affordances[0] + yelp_affordances[0])
 
@@ -202,8 +190,6 @@ def get_current_conditions_as_keyvalues(lat, lng):
     curr_conditions.update(custom_affordances[1])
     curr_conditions = {YELP_API.clean_string(k): v for k, v in curr_conditions.items()}
 
-    # TODO: make each value a list where each is [time_before_execution, value]
-    # curr_conditions = {k: (5, v) for k, v in curr_conditions.items()}
     return curr_conditions
 
 
@@ -216,42 +202,32 @@ def get_categories_for_location(lat, lng):
     :param lng: longitude, as a float
     :return: tuple of (list, key-value dict) of yelp response
     """
-    output_list = []
-
     # check cache, if not there then query from yelp
     cached_location, valid_cache_location = YELP_CACHE.fetch_from_cache(lat, lng)
 
+    # check validity of cache
     if cached_location is not None:
         if valid_cache_location:
-            print("VALID Cache HIT...returning cached data.")
-            output_list = cached_location['data']
+            print("Yelp API -- VALID Cache HIT...returning cached data.")
+            location_categories = cached_location['data']
+            return location_categories, {key: True for key in location_categories}
         else:
-            print("INVALID Cache HIT...querying data from Yelp.")
-
-            # get data and update cache if valid
-            location_categories = fetch_yelp_data(lat, lng)
-            print("locations/categories from yelp: {}".format(location_categories))
-
-            # add data to cache
-            YELP_CACHE.update_cache(cached_location['_id'], location_categories)
-
-            # set output list
-            output_list = location_categories
+            print("Yelp API -- EXPIRED Cache HIT...querying data from OpenWeatherMaps.")
     else:
-        print("Cache MISS...querying data from Yelp.")
+        print("Yelp API -- Cache MISS...querying data from Yelp.")
 
-        # query data from yelp
-        location_categories = fetch_yelp_data(lat, lng)
-        print("locations/categories from yelp: {}".format(location_categories))
+    # get data from Yelp API
+    location_categories = fetch_yelp_data(lat, lng)
+    print("Yelp API -- locations/categories from Yelp: {}".format(location_categories))
 
-        # add data to cache
+    # add/update to cache depending on if object previously existed in cache
+    if cached_location is None:
         YELP_CACHE.add_to_cache(lat, lng, location_categories)
-
-        # set output list
-        output_list = location_categories
+    else:
+        YELP_CACHE.update_cache(cached_location['_id'], location_categories)
 
     # return output tuple
-    return output_list, {key: True for key in output_list}
+    return location_categories, {key: True for key in location_categories}
 
 
 def fetch_yelp_data(lat, lng):
@@ -300,17 +276,69 @@ def get_custom_affordances(conditions):
     return found_custom_affordances, {key: True for key in found_custom_affordances}
 
 
-# weather and time-based helper functions
-def get_weather_time(lat, lng):
+# weather and time helper functions
+def get_weather_data(lat, lng):
     """
-    Get the weather for current latitude and longitude, and return as list.
+    Fetches weather and forecast data for location from cache, if possible. Otherwise, queries API.
+
+    :param lat: latitude, as float
+    :param lng: longitude, as float
+    :return: dict with keys 'weather' and 'forecast' with lists containing current weather and forecast responses.
+    """
+    # check cache, if not there then query from weather api
+    cached_location, valid_cache_location = WEATHER_CACHE.fetch_from_cache(lat, lng)
+
+    # check validity of cached location
+    if cached_location is not None:
+        if valid_cache_location:
+            print("Weather API -- VALID Cache HIT...returning cached data.")
+            weather_forecast_dict = cached_location['data']
+            return weather_forecast_dict
+        else:
+            print("Weather API -- EXPIRED Cache HIT...querying data from OpenWeatherMaps.")
+    else:
+        print("Weather API -- Cache MISS...querying data from OpenWeatherMaps.")
+
+    # query data from API
+    weather_results = WEATHER_API.get_weather_at_location(lat, lng)
+    forecast_results = WEATHER_API.get_forecast_at_location(lat, lng)
+
+    if weather_results is None:
+        weather_results = []
+
+    if forecast_results is None:
+        forecast_results = []
+
+    weather_forecast_dict = {
+        'weather': weather_results,
+        'forecast': forecast_results
+    }
+    print("Weather API -- weather/forecast from OpenWeatherMaps: {}".format(weather_forecast_dict))
+
+    # update/add to cache as needed
+    if cached_location is None:
+        WEATHER_CACHE.add_to_cache(lat, lng, weather_forecast_dict)
+    else:
+        WEATHER_CACHE.update_cache(cached_location['_id'], weather_forecast_dict)
+
+    # return weather/forecast dict
+    return weather_forecast_dict
+
+
+def compute_weather_time_affordances(lat, lng):
+    """
+    Get the weather for current latitude and longitude, returned as a tuple.
 
     :param lat: latitude, as float
     :param lng: longitude, as float
     :return: tuple of (list, key-value dict) of weather for the location
     """
-    # make weather request and parse response
-    weather_resp = make_weather_request(lat, lng)
+    # get weather and forecast data
+    weather_forecast_dict = get_weather_data(lat, lng)
+    weather_resp = weather_forecast_dict['weather']
+    forecast_resp = weather_forecast_dict['forecast']
+
+    # parse weather
     weather_features = [weather['main'] for weather in weather_resp['weather']]
 
     # get sunrise/sunset/current times
@@ -325,8 +353,7 @@ def get_weather_time(lat, lng):
     days_of_the_week = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
     current_day = days_of_the_week[current_local.weekday()]
 
-    # make forecast request and parse response
-    forecast_resp = make_forecast_request(lat, lng)
+    # parse forecast
     forecast_sunset = ''
 
     for prediction in forecast_resp['list']:
@@ -357,34 +384,6 @@ def get_weather_time(lat, lng):
 
     # return output tuple
     return weather_features + [current_day], output_dict
-
-
-def make_weather_request(lat, lng):
-    """
-    Makes a request to the weather API for the weather at the current location.
-
-    :param lat: latitude, as a float
-    :param lng: longitude, as a float
-    :return: JSON response as dict from weather API for current weather at current location
-    """
-    url = 'http://api.openweathermap.org/data/2.5/weather?lat={}&lon={}&appid={}'.format(str(lat),
-                                                                                         str(lng),
-                                                                                         WEATHER_API_KEY)
-    return requests.get(url).json()
-
-
-def make_forecast_request(lat, lng):
-    """
-    Makes a request to the weather API for the forecast at the current location.
-
-    :param lat: latitude, as a float
-    :param lng: longitude, as a float
-    :return: JSON response as dict from weather API for current forecast at current location
-    """
-    url = 'http://api.openweathermap.org/data/2.5/forecast?lat={}&lon={}&appid={}'.format(str(lat),
-                                                                                          str(lng),
-                                                                                          WEATHER_API_KEY)
-    return requests.get(url).json()
 
 
 def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):

@@ -11,6 +11,7 @@ class DataCache(object):
     Attributes:
         mongo_uri: A string that tells what MongoDB to use for the location cache.
         db: DB to use.
+        collection_name: String name of current collection.
         collection: Collection within DB where location data is stored.
         distance_threshold: A float that the nearest cache hit must be within.
         time_threshold: Longest time cache data is valid in database.
@@ -32,6 +33,7 @@ class DataCache(object):
         self.client = MongoClient(self.mongo_uri)
 
         self.db = self.client[db_name]
+        self.collection_name = collection_name
         self.collection = self.db[collection_name]
 
         # setup distance and time thresholds for matching data point
@@ -63,8 +65,9 @@ class DataCache(object):
             time_delta_sec_to_nearest = (current_date - nearest_cached_loc['date']).total_seconds()
             time_delta_mins_to_nearest = divmod(time_delta_sec_to_nearest, 60)[0]
 
-            print('Nearest cached location: {} meters away, {} minutes ago.'.format(dist_to_nearest,
-                                                                                    time_delta_mins_to_nearest))
+            print('{} -- Nearest cached location: {} meters away, {} minutes ago.'.format(self.collection_name,
+                                                                                          dist_to_nearest,
+                                                                                          time_delta_mins_to_nearest))
 
             # cache is valid if within distance
             if dist_to_nearest < self.distance_threshold:
