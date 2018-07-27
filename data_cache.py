@@ -13,14 +13,14 @@ class DataCache(object):
         db: DB to use.
         collection_name: String name of current collection.
         collection: Collection within DB where location data is stored.
-        distance_threshold: A float that the nearest cache hit must be within.
-        time_threshold: Longest time cache data is valid in database.
+        distance_threshold: A float value denoting the number of meters that the nearest cache hit must be within.
+        time_threshold: Longest time in minutes cache data is valid in database.
         client: Mongo client initialized with mongo_uri.
     """
 
     def __init__(self, mongo_uri, db_name, collection_name, distance_threshold=10.0, time_threshold=60):
         """
-        Returns a LocationCache object with class variables and mongo client initialized.
+        Returns a DataCache object with class variables and mongo client initialized.
 
         :param mongo_uri: A string that tells what MongoDB to use for the location cache.
         :param db_name: A string indicating DB to use.
