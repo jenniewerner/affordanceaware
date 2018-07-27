@@ -18,7 +18,7 @@ class DataCache(object):
         client: Mongo client initialized with mongo_uri.
     """
 
-    def __init__(self, mongo_uri, db_name, collection_name, distance_threshold=10.0, time_threshold=60):
+    def __init__(self, mongo_uri, db_name, collection_name, distance_threshold, time_threshold):
         """
         Returns a DataCache object with class variables and mongo client initialized.
 
@@ -110,7 +110,7 @@ class DataCache(object):
                 'data': new_data_to_save,
                 'date': datetime.datetime.utcnow()
             }
-        }, upsert=True)
+        }, upsert=False)
 
 
 if __name__ == 'main':
