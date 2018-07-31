@@ -340,13 +340,13 @@ def compute_weather_time_affordances(lat, lng):
     weather_features = [weather['main'] for weather in weather_resp['weather']]
 
     # get sunrise/sunset/current times
-    sunset = datetime.datetime.fromtimestamp(weather_resp['sys']['sunset'])
-    sunrise = datetime.datetime.fromtimestamp(weather_resp['sys']['sunrise'])
+    sunset = datetime.datetime.utcfromtimestamp(weather_resp['sys']['sunset'])
+    sunrise = datetime.datetime.utcfromtimestamp(weather_resp['sys']['sunrise'])
     current_local = get_local_time(lat, lng)
 
     sunset_in_utc = sunset.replace(tzinfo=utc)
     sunrise_in_utc = sunrise.replace(tzinfo=utc)
-    current_in_utc = datetime.datetime.now().replace(tzinfo=utc)
+    current_in_utc = datetime.datetime.utcnow().replace(tzinfo=utc)
 
     days_of_the_week = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
     current_day = days_of_the_week[current_local.weekday()]
@@ -355,7 +355,7 @@ def compute_weather_time_affordances(lat, lng):
     forecast_sunset = ''
 
     for prediction in forecast_resp['list']:
-        forecast_dt = datetime.datetime.fromtimestamp(prediction['dt'])
+        forecast_dt = datetime.datetime.utcfromtimestamp(prediction['dt'])
         forecast_dt = forecast_dt.replace(tzinfo=utc)
 
         # get only the sunset predicted weather (weather within 3 hours of sunset time)
