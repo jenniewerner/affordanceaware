@@ -340,12 +340,12 @@ def compute_weather_time_affordances(lat, lng):
     weather_features = [weather['main'] for weather in weather_resp['weather']]
 
     # get sunrise/sunset/current times
+    sunrise = datetime.datetime.fromtimestamp(weather_resp['sys']['sunrise'])
     sunset = datetime.datetime.utcfromtimestamp(weather_resp['sys']['sunset'])
-    sunrise = datetime.datetime.utcfromtimestamp(weather_resp['sys']['sunrise'])
     current_local = get_local_time(lat, lng)
 
-    sunset_in_utc = sunset.replace(tzinfo=utc)
     sunrise_in_utc = sunrise.replace(tzinfo=utc)
+    sunset_in_utc = sunset.replace(tzinfo=utc)
     current_in_utc = datetime.datetime.utcnow().replace(tzinfo=utc)
 
     days_of_the_week = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
@@ -393,10 +393,12 @@ def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):
     :param sunset_in_utc: sunset time in UTC at user's location
     :return: daylight state of user, given time, as string
     """
-    if abs(sunset_in_utc - current_in_utc) <= datetime.timedelta(minutes=25):
+    print('period_of_day arguments | current_in_utc: {}, sunrise_in_utc: {}, sunset_in_utc: {}'.format(current_in_utc, sunrise_in_utc, sunset_in_utc))
+
+    if abs(sunset_in_utc - current_in_utc) <= datetime.timedelta(minutes=30):
         return "sunset"
 
-    if abs(sunrise_in_utc - current_in_utc) <= datetime.timedelta(minutes=25):
+    if abs(sunrise_in_utc - current_in_utc) <= datetime.timedelta(minutes=30):
         return "sunrise"
 
     if sunset_in_utc > current_in_utc > sunrise_in_utc:
