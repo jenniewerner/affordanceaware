@@ -14,6 +14,7 @@ from timezonefinder import TimezoneFinder
 # Modules
 from yelp import Yelp
 from weather import Weather
+from sunrise_sunset import SunriseSunset
 from data_cache import DataCache
 
 # setup Flask app
@@ -71,6 +72,8 @@ YELP_API = Yelp(environ.get("YELP_API_KEY"), hardcoded_locations=HARDCODED_LOCAT
 # setup weather API
 WEATHER_API = Weather(environ.get("WEATHER_KEY"))
 
+SUNRISE_SUNSET_API = SunriseSunset()
+
 # setup DB connection to cache
 MONGODB_URI = environ.get("MONGODB_URI")
 if MONGODB_URI is None or MONGODB_URI == "":
@@ -106,6 +109,22 @@ if WEATHER_CACHE_TIME_THRESHOLD is None:
     print("WEATHER_CACHE_TIME_THRESHOLD not specified. Default to {} minutes.".format(WEATHER_CACHE_TIME_THRESHOLD))
 else:
     WEATHER_CACHE_TIME_THRESHOLD = float(WEATHER_CACHE_TIME_THRESHOLD)
+
+# get configuration variables for SunriseSunset cache
+SUNRISE_SUNSET_CACHE_DISTANCE_THRESHOLD = environ.get("SUNRISE_SUNSET_CACHE_DISTANCE_THRESHOLD")
+if SUNRISE_SUNSET_CACHE_DISTANCE_THRESHOLD is None:
+    SUNRISE_SUNSET_CACHE_DISTANCE_THRESHOLD = 100000.0   # 100km = 60 miles
+    print("SUNRISE_SUNSET_CACHE_DISTANCE_THRESHOLD not specified. Default to {} meters.".format(SUNRISE_SUNSET_CACHE_DISTANCE_THRESHOLD))
+else:
+    SUNRISE_SUNSET_CACHE_DISTANCE_THRESHOLD = float(SUNRISE_SUNSET_CACHE_DISTANCE_THRESHOLD)
+
+SUNRISE_SUNSET_TIME_THRESHOLD = environ.get("SUNRISE_SUNSET_TIME_THRESHOLD")
+if SUNRISE_SUNSET_TIME_THRESHOLD is None:
+    # 4 hours (if we cached at 11:59p yesterday, it will update with todays info at 3:59a, plenty of time before next sunrise)
+    SUNRISE_SUNSET_TIME_THRESHOLD = 60 * 4
+    print("SUNRISE_SUNSET_TIME_THRESHOLD not specified. Default to {} minutes.".format(SUNRISE_SUNSET_TIME_THRESHOLD))
+else:
+    SUNRISE_SUNSET_TIME_THRESHOLD = float(SUNRISE_SUNSET_TIME_THRESHOLD)
 
 # initialize data cache
 DATA_CACHE = DataCache(MONGODB_URI, "affordance-aware")
@@ -271,7 +290,6 @@ def get_custom_affordances(conditions):
     # return output tuple
     return found_custom_affordances, {key: True for key in found_custom_affordances}
 
-
 # weather and time helper functions
 def get_weather_data(lat, lng):
     """
@@ -322,6 +340,45 @@ def get_weather_data(lat, lng):
     # return weather/forecast dict
     return weather_forecast_dict
 
+# sunrise/sunset time information
+def get_sunrise_sunset_data(lat, lng):
+    """
+    Fetches sunset/sunrise for location from cache, if possible. Otherwise, queries API.
+
+    :param lat: latitude, as float
+    :param lng: longitude, as float
+    :return:  TODO(rlouie)
+    """
+    cached_location, valid_cache_location = DATA_CACHE.fetch_from_cache('SunriseSunsetCache', lat, lng,
+                                                                        SUNRISE_SUNSET_CACHE_DISTANCE_THRESHOLD,
+                                                                        SUNRISE_SUNSET_TIME_THRESHOLD)
+    # check validity of cached location
+    if cached_location is not None:
+        if valid_cache_location:
+            print("SunriseSunset API -- VALID Cache HIT...returning cached data.")
+            sunrise_sunset_dict = cached_location['data']
+            return sunrise_sunset_dict
+        else:
+            print("SunriseSunset API -- EXPIRED Cache HIT...querying data from sunrise-sunset.org/api.")
+    else:
+        print("Weather API -- Cache MISS...querying data from sunrise-sunset.org/api.")
+
+    # query data from API
+    sunrise_sunset_dict = SUNRISE_SUNSET_API.get_sunrise_sunset_at_location(lat, lng)
+
+    if sunrise_sunset_dict is None:
+        sunrise_sunset_dict = {}
+
+    print("SunriseSunset API -- weather/forecast from OpenWeatherMaps: {}".format(sunrise_sunset_dict))
+
+    # update/add to cache as needed
+    if cached_location is None:
+        DATA_CACHE.add_to_cache('SunriseSunsetCache', lat, lng, sunrise_sunset_dict)
+    else:
+        DATA_CACHE.update_cache('SunriseSunsetCache', cached_location['_id'], sunrise_sunset_dict)
+
+    # return weather/forecast dict
+    return sunrise_sunset_dict
 
 def compute_weather_time_affordances(lat, lng):
     """
@@ -331,17 +388,18 @@ def compute_weather_time_affordances(lat, lng):
     :param lng: longitude, as float
     :return: tuple of (list, key-value dict) of weather for the location
     """
-    # get weather and forecast data
+    # get weather, forecast, and sunrise/sunset data
     weather_forecast_dict = get_weather_data(lat, lng)
     weather_resp = weather_forecast_dict['weather']
     forecast_resp = weather_forecast_dict['forecast']
+    sunrise_sunset_dict = get_sunrise_sunset_data(lat, lng)
 
     # parse weather
     weather_features = [weather['main'] for weather in weather_resp['weather']]
 
     # get sunrise/sunset/current times
-    sunset = datetime.datetime.utcfromtimestamp(weather_resp['sys']['sunset'])
-    sunrise = datetime.datetime.utcfromtimestamp(weather_resp['sys']['sunrise'])
+    sunrise = datetime.datetime.strptime(sunrise_sunset_dict["sunrise"], '%Y-%m-%dT%H:%M:%S+00:00')
+    sunset = datetime.datetime.strptime(sunrise_sunset_dict["sunset"], '%Y-%m-%dT%H:%M:%S+00:00')
     current_local = get_local_time(lat, lng)
 
     sunset_in_utc = sunset.replace(tzinfo=utc)
