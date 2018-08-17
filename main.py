@@ -394,49 +394,51 @@ def compute_weather_time_affordances(lat, lng):
     forecast_resp = weather_forecast_dict['forecast']
     sunrise_sunset_dict = get_sunrise_sunset_data(lat, lng)
 
-    # parse weather
-    weather_features = [weather['main'] for weather in weather_resp['weather']]
-
-    # get sunrise/sunset/current times
-    sunrise = datetime.datetime.strptime(sunrise_sunset_dict["sunrise"], '%Y-%m-%dT%H:%M:%S+00:00')
-    sunset = datetime.datetime.strptime(sunrise_sunset_dict["sunset"], '%Y-%m-%dT%H:%M:%S+00:00')
-    current_local = get_local_time(lat, lng)
-
-    sunrise_in_utc = sunrise.replace(tzinfo=utc)
-    sunset_in_utc = sunset.replace(tzinfo=utc)
-    current_in_utc = datetime.datetime.utcnow().replace(tzinfo=utc)
-
-    days_of_the_week = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-    current_day = days_of_the_week[current_local.weekday()]
-
-    # parse forecast
-    forecast_sunset = ''
-
-    for prediction in forecast_resp['list']:
-        forecast_dt = datetime.datetime.utcfromtimestamp(prediction['dt'])
-        forecast_dt = forecast_dt.replace(tzinfo=utc)
-
-        # get only the sunset predicted weather (weather within 3 hours of sunset time)
-        if abs(sunset_in_utc - forecast_dt) <= datetime.timedelta(hours=3):
-            if sunset_in_utc.weekday() == forecast_dt.weekday():
-                forecast_sunset += '{}'.format(prediction["weather"][0]["main"].lower())
-                break
-
     # create key-value output
     output_dict = {}
 
-    # weather, forecast, and time of day
-    output_dict.update({weather_key: True for weather_key in weather_features})
-    output_dict['sunset_predicted_weather'] = forecast_sunset
-    output_dict[period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc)] = True
-
-    # specific time variables
+    # specific local time variables
+    current_local = get_local_time(lat, lng)
+    current_in_utc = datetime.datetime.utcnow().replace(tzinfo=utc)
+    days_of_the_week = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    current_day = days_of_the_week[current_local.weekday()]
     output_dict['utc_offset'] = current_local.utcoffset().total_seconds() / 60 / 60
     output_dict['hour'] = current_local.hour
     output_dict['minute'] = current_local.minute
-    output_dict['sunset_time_minutes'] = sunset.minute
     output_dict[current_local.tzinfo.zone] = True  # 'America/Chicago': True
     output_dict[current_day] = True  # 'wednesday': True
+
+    # parse weather
+    if weather_resp:
+        weather_features = [weather['main'] for weather in weather_resp['weather']]
+        output_dict.update({weather_key: True for weather_key in weather_features})
+    else:
+        weather_features = []
+
+    # get sunrise/sunset/current times
+    if sunrise_sunset_dict:
+        sunrise = datetime.datetime.strptime(sunrise_sunset_dict["sunrise"], '%Y-%m-%dT%H:%M:%S+00:00')
+        sunset = datetime.datetime.strptime(sunrise_sunset_dict["sunset"], '%Y-%m-%dT%H:%M:%S+00:00')
+        sunrise_in_utc = sunrise.replace(tzinfo=utc)
+        sunset_in_utc = sunset.replace(tzinfo=utc)
+        output_dict[period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc)] = True
+        output_dict['sunset_time_minutes'] = sunset.minute
+
+    if forecast_resp and sunrise_sunset_dict:
+        # parse forecast
+        forecast_sunset = ''
+
+        for prediction in forecast_resp['list']:
+            forecast_dt = datetime.datetime.utcfromtimestamp(prediction['dt'])
+            forecast_dt = forecast_dt.replace(tzinfo=utc)
+
+            # get only the sunset predicted weather (weather within 3 hours of sunset time)
+            if abs(sunset_in_utc - forecast_dt) <= datetime.timedelta(hours=3):
+                if sunset_in_utc.weekday() == forecast_dt.weekday():
+                    forecast_sunset += '{}'.format(prediction["weather"][0]["main"].lower())
+                    break
+
+        output_dict['sunset_predicted_weather'] = forecast_sunset
 
     # return output tuple
     return weather_features + [current_day], output_dict
