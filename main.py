@@ -257,7 +257,7 @@ def fetch_yelp_data(lat, lng):
     categories = ['grocery', 'trainstations', 'transport', 'bars', 'climbing', 'cafeteria', 'libraries',
                   'religiousorgs', 'sports_clubs', 'fitness']
     location_categories = YELP_API.fetch_all_locations(lat, lng, ','.join(categories),
-                                                       distance_threshold=60, radius=50)
+                                                       distance_threshold=60, radius=17)
 
     #  if request returns None, return empty list
     if location_categories is None:
