@@ -23,49 +23,49 @@ cors = CORS(app, resources={r"/api": {"origins": "http://localhost:3000"}})
 
 # setup yelp API
 HARDCODED_LOCATION = [
-        ("cafeteria", (42.058813, -87.675602)),
-        ("parks", (42.052460, -87.669876)),
+        ({"sargent_hall_evanston": ["cafeteria"]}, (42.058813, -87.675602)),
+        ({"lakefill_southtip_evanston": ["parks", "lakes"]}, (42.052460, -87.669876)),
         # ("hackerspace", (42.056929, -87.676694)),
         # ("end_of_f_wing", (42.057472, -87.67662)),
         # ("atrium", (42.057323, -87.676164)),
         # ("k_wing", (42.05745, -87.675085)),
         # ("l_wing",(42.057809, -87.67611)),
-        ("grocery", (42.047691, -87.679189)),
-        ("grocery", (42.047691, -87.679189)),
-        ("grocery", (42.047874, -87.679489)),
-        ("gyms", (42.061293, -87.676620)),
-        ("train_stations", (42.058623, -87.683433)),
-        ("train_stations", (42.019285, -87.673238)),
-        ("libraries", (42.058141, -87.674490)),
-        ("field", (42.058364, -87.67089)),               # lakeside field
-        ("field", (42.053160, -87.677064)),              # deering meadow, street side
-        ("field", (42.053311, -87.675788)),              # deering meadow, university side
-        ("parks", (42.053192, -87.676967)),              # deering meadow
-        ("religious_schools", (42.056168, -87.675802)),
-        ("religious_schools", (42.050438, -87.677565)),  # alice millar
-        ("gyms", (42.054259, -87.678203)),               # blom
-        ("gyms", (42.059575, -87.672667)),               # spac
-        ("gyms", (42.059612, -87.673462)),               # spac
-        ("religious_schools", (42.053232, -87.677212)),
-        ("libraries", (42.053046, -87.674814)),
-        ("libraries", (42.053046, -87.674814)),
-        ("lakes", (47.671756, -122.344640)),             # greenlake
-        ("lakes", (47.681494, -122.341121)),             # greenlake
-        ("lakes", (47.680194, -122.327946)),             # greenlake
-        ("parks", (47.680194, -122.327946)),             # greenlake
-        ("lakes", (42.052460, -87.669876)),              # lakefill
-        ("bars", (47.600759, -122.331817)),              # mccoy's
-        ("parks", (47.724032, -122.337868)),             # ingraham
-        ("parks", (42.056569, -87.677079)),              # shakespeare garden near sheridan
-        ("parks", (42.059315, -87.675995)),              # frat grass
-        ("parks", (42.052750, -87.677229)),              # deering street side again
-        ("parks", (42.053808, -87.678296)),              # foster
-        ("parks", (42.053881, -87.677290)),              # foster and sheridan
-        ("parks", (42.056257, -87.676201)),              # garrett
-        ("parks", (42.057223, -87.677239)),              # seabury
-        ("parks", (42.053893, -87.681738)),              # foster and sherman
-        ("parks", (42.055037, -87.679631)),              # library and orrington
-        ("parks", (42.057300, -87.679615))               # haven and orrington
+        # temporary
+        # ("grocery", (42.047691, -87.679189)),
+        # ("grocery", (42.047691, -87.679189)),
+        # ("grocery", (42.047874, -87.679489)),
+        # ("gyms", (42.061293, -87.676620)),
+        # ("train_stations", (42.058623, -87.683433)),
+        # ("train_stations", (42.019285, -87.673238)),
+        # ("libraries", (42.058141, -87.674490)),
+        # ("field", (42.058364, -87.67089)),               # lakeside field
+        # ("field", (42.053160, -87.677064)),              # deering meadow, street side
+        # ("field", (42.053311, -87.675788)),              # deering meadow, university side
+        # ("parks", (42.053192, -87.676967)),              # deering meadow
+        # ("religious_schools", (42.056168, -87.675802)),
+        # ("religious_schools", (42.050438, -87.677565)),  # alice millar
+        # ("gyms", (42.054259, -87.678203)),               # blom
+        # ("gyms", (42.059575, -87.672667)),               # spac
+        # ("gyms", (42.059612, -87.673462)),               # spac
+        # ("religious_schools", (42.053232, -87.677212)),
+        # ("libraries", (42.053046, -87.674814)),
+        # ("libraries", (42.053046, -87.674814)),
+        # ("lakes", (47.671756, -122.344640)),             # greenlake
+        # ("lakes", (47.681494, -122.341121)),             # greenlake
+        # ("lakes", (47.680194, -122.327946)),             # greenlake
+        # ("parks", (47.680194, -122.327946)),             # greenlake
+        # ("bars", (47.600759, -122.331817)),              # mccoy's
+        # ("parks", (47.724032, -122.337868)),             # ingraham
+        # ("parks", (42.056569, -87.677079)),              # shakespeare garden near sheridan
+        # ("parks", (42.059315, -87.675995)),              # frat grass
+        # ("parks", (42.052750, -87.677229)),              # deering street side again
+        # ("parks", (42.053808, -87.678296)),              # foster
+        # ("parks", (42.053881, -87.677290)),              # foster and sheridan
+        # ("parks", (42.056257, -87.676201)),              # garrett
+        # ("parks", (42.057223, -87.677239)),              # seabury
+        # ("parks", (42.053893, -87.681738)),              # foster and sherman
+        # ("parks", (42.055037, -87.679631)),              # library and orrington
+        # ("parks", (42.057300, -87.679615))               # haven and orrington
 ]
 YELP_API = Yelp(environ.get("YELP_API_KEY"), hardcoded_locations=HARDCODED_LOCATION)
 
@@ -154,6 +154,17 @@ def get_location_keyvalues(lat, lng):
     """
     return jsonify(get_current_conditions_as_keyvalues(float(lat), float(lng)))
 
+@app.route('/location_weather_time_keyvalues/<string:lat>/<string:lng>', methods=['GET'])
+def get_location_weather_time_keyvalues(lat, lng):
+    """
+    Gets tags for location, as a dict.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return: current conditions as key-value pairs
+    """
+
+    return jsonify(get_weather_time_conditions_as_keyvalues(float(lat), float(lng)))
 
 @app.route("/")
 def hello():
@@ -180,8 +191,7 @@ def get_current_conditions(lat, lng):
     current_conditions += get_categories_for_location(lat, lng)[0]       # current list of yelp conditions
     current_conditions += get_custom_affordances(current_conditions)[0]  # custom list of affordances
 
-    # cleanup and deduplicate before returning
-    return list({current_affordance.lower() for current_affordance in current_conditions})
+    return current_conditions
 
 
 def get_current_conditions_as_keyvalues(lat, lng):
@@ -195,15 +205,52 @@ def get_current_conditions_as_keyvalues(lat, lng):
     # fetch data
     weather_time_affordances = compute_weather_time_affordances(lat, lng)
     yelp_affordances = get_categories_for_location(lat, lng)
-    custom_affordances = get_custom_affordances(weather_time_affordances[0] + yelp_affordances[0])
+    # NOTE(rlouie) 3/2/19: not using custom affordances for any experiences
+    # custom_affordances = get_custom_affordances(weather_time_affordances[0] + yelp_affordances[0])
 
     curr_conditions = {}
     curr_conditions.update(weather_time_affordances[1])
     curr_conditions.update(yelp_affordances[1])
-    curr_conditions.update(custom_affordances[1])
+    # NOTE(rlouie) 3/2/19: not using custom affordances for any experiences
+    # curr_conditions.update(custom_affordances[1])
     curr_conditions = {YELP_API.clean_string(k): v for k, v in curr_conditions.items()}
 
     return curr_conditions
+
+def get_weather_time_conditions_as_keyvalues(lat, lng):
+    """
+    Gets the user's current affordance state, given a latitude/longitude, and returns as an dictionary.
+
+    :param lat: latitude, as a float
+    :param lng: longitude, as a float
+    :return: dict of weather, yelp API response, and local locations
+    """
+    curr_conditions = {}
+    weather_time_affordances = compute_weather_time_affordances(float(lat), float(lng))
+    curr_conditions.update(weather_time_affordances[1])
+
+    return curr_conditions
+
+
+def place_categories_dict_as_keyvalues(place_categories_dict):
+    """
+    :param place_categories_dict: [dict] {'bat_17_evanston': ['sandwiches', 'sportsbars'],
+                                          'le_peep_evanston': ['breakfast']}
+    :return res: [dict] {
+                            'bat_17_evanston': {
+                                'sandwiches': True,
+                                'sportsbars': True
+                             },
+                             'le_peep_evanston': {
+                                'breakfast': True
+                             }
+                        }
+    """
+    res = {}
+    for place, category_list in place_categories_dict.items():
+        nested_category_dict = {category: True for category in category_list}
+        res[place] = nested_category_dict
+    return res
 
 
 # location helper functions
@@ -224,25 +271,25 @@ def get_categories_for_location(lat, lng):
     if cached_location is not None:
         if valid_cache_location:
             print("Yelp API -- VALID Cache HIT...returning cached data.")
-            location_categories = cached_location['data']
-            return location_categories, {key: True for key in location_categories}
+            place_categories_dict = cached_location['data']
+            return place_categories_dict, place_categories_dict_as_keyvalues(place_categories_dict)
         else:
             print("Yelp API -- EXPIRED Cache HIT...querying data from OpenWeatherMaps.")
     else:
         print("Yelp API -- Cache MISS...querying data from Yelp.")
 
     # get data from Yelp API
-    location_categories = fetch_yelp_data(lat, lng)
-    print("Yelp API -- locations/categories from Yelp: {}".format(location_categories))
+    place_categories_dict = fetch_yelp_data(lat, lng)
+    print("Yelp API -- locations/categories from Yelp: {}".format(place_categories_dict))
 
     # add/update to cache depending on if object previously existed in cache
     if cached_location is None:
-        DATA_CACHE.add_to_cache('LocationCache', lat, lng, location_categories)
+        DATA_CACHE.add_to_cache('LocationCache', lat, lng, place_categories_dict)
     else:
-        DATA_CACHE.update_cache('LocationCache', cached_location['_id'], location_categories)
+        DATA_CACHE.update_cache('LocationCache', cached_location['_id'], place_categories_dict)
 
     # return output tuple
-    return location_categories, {key: True for key in location_categories}
+    return place_categories_dict, place_categories_dict_as_keyvalues(place_categories_dict)
 
 
 def fetch_yelp_data(lat, lng):
@@ -256,14 +303,13 @@ def fetch_yelp_data(lat, lng):
     # query data from yelp
     categories = ['grocery', 'trainstations', 'transport', 'bars', 'climbing', 'cafeteria', 'libraries',
                   'religiousorgs', 'sports_clubs', 'fitness']
-    location_categories = YELP_API.fetch_all_locations(lat, lng, ','.join(categories),
-                                                       distance_threshold=60, radius=17)
+    place_categories_dict = YELP_API.fetch_all_locations(lat, lng, ','.join(categories),
+                                                         distance_threshold=60, radius=30)
 
-    #  if request returns None, return empty list
-    if location_categories is None:
-        return []
-
-    return location_categories
+    #  if request returns None, return empty
+    if place_categories_dict is None:
+        return {}
+    return place_categories_dict
 
 
 def get_custom_affordances(conditions):
