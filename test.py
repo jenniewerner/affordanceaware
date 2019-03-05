@@ -154,18 +154,6 @@ def query_api(term, lat, lng):
     pprint.pprint(response, indent=2)
 
 
-def test_transform_name_to_variable():
-    """
-    Testing for `transform_name_to_variable`.
-
-    :return: None
-    """
-    assert Yelp.clean_string('Vietnamese') == 'vietnamese'
-    assert Yelp.clean_string('ATV Rentals/Tours') == 'atv_rentals_tours'
-    assert Yelp.clean_string('Hunting & Fishing Supplies') == 'hunting___fishing_supplies'
-    assert Yelp.clean_string("May's Vietnamese Restaurant") == 'may_s_vietnamese_restaurant'
-
-
 def main():
     parser = argparse.ArgumentParser()
 

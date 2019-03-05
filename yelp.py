@@ -105,22 +105,23 @@ class Yelp(object):
         :param distance_threshold: optional float for how close lat, lng must be to hardcoded location
         :return:
         """
-        nearby_hardcoded_cats = []
+        nearby_hardcoded_place_cats = {}
 
+        # TODO(rlouie): hardcoded_locations should look like [..., ({"placename": [affordance]}, (lat,lng)), ...]
         for location in self.hardcoded_locations:
-            curr_location_category = location[0]
+            place_category_dict = location[0]
             curr_location_coords = location[1]
 
             # add location if within distance_threshold
             dist = vincenty(curr_location_coords, (lat, lng)).meters
             if dist < distance_threshold:
-                nearby_hardcoded_cats.append(curr_location_category)
+                nearby_hardcoded_place_cats.update(place_category_dict)
 
-        return nearby_hardcoded_cats
+        return nearby_hardcoded_place_cats
 
-    def fetch_all_locations(self, lat, lng, categories, distance_threshold=60, radius=17):
+    def fetch_yelp_locations(self, lat, lng, categories, radius=17):
         """
-        Fetch all categories and locations, including hardcoded, given a lat and lng location.
+        Fetch yelp categories and locations, given a lat and lng location.
 
         :param lat: float latitude to center request around.
         :param lng: float longitude to center request around.
@@ -142,27 +143,41 @@ class Yelp(object):
 
         # create yelp output
         yelp_businesses = yelp_generic_resp.json()['businesses'] + yelp_specific_resp.json()['businesses']
-        yelp_output = set()
+        place_category_dict = {}
 
         for business in yelp_businesses:
             # check if distance is within radius
+            # note: double check since query radius also does this?
             curr_dist = business['distance']
 
             if not curr_dist <= radius:
                 continue
 
-            # add business alias (semi-cleaned name by yelp)
             curr_business_name = self.clean_string(business['alias'])
+            curr_business_categories = [self.clean_string(category['alias']) for category in business['categories']]
 
             print("adding: {} at distance: {} from user".format(curr_business_name, curr_dist))
-            yelp_output.add(self.clean_string(curr_business_name))
+            place_category_dict[curr_business_name] = curr_business_categories
 
-            # add business categories
-            for category in business['categories']:
-                yelp_output.add(self.clean_string(category['alias']))
+        return place_category_dict
+
+    def fetch_all_locations(self, lat, lng, categories, distance_threshold=60, radius=17):
+        """
+        Fetch all categories and locations, including hardcoded, given a lat and lng location.
+
+        :param lat: float latitude to center request around.
+        :param lng: float longitude to center request around.
+        :param categories: optional string with comma separated categories to search for (ex. 'trainstations,grocery)
+            List of all categories: https://www.yelp.com/developers/documentation/v3/all_category_list
+        :param distance_threshold: optional float for how close lat, lng must be to hardcoded location
+        :param radius: optional int radius to determine area around lat, lng to query for.
+        :return: categories and locations, cleaned using clean_string, if responses were successful. None otherwise.
+        """
+        yelp_place_category_dict = self.fetch_yelp_locations(lat, lng, categories=categories, radius=radius)
 
         # get hardcoded categories
-        hardcoded_categories_set = set(self.fetch_hardcoded_locations(lat, lng, distance_threshold=distance_threshold))
+        hardcoded_place_category_dict = self.fetch_hardcoded_locations(lat, lng, distance_threshold=distance_threshold)
 
         # combine and return
-        return list(hardcoded_categories_set.union(yelp_output))
+        yelp_place_category_dict.update(hardcoded_place_category_dict)
+        return yelp_place_category_dict
