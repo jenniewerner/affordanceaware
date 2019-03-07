@@ -48,7 +48,7 @@ class Yelp(object):
         }
 
     @staticmethod
-    def yelp_search(headers, lat, lng, radius=17, limit=50, term='', categories=''):
+    def yelp_search(headers, lat, lng, radius=30, limit=50, term='', categories=''):
         """
         Queries Yelp with the given parameters.
 
@@ -119,7 +119,7 @@ class Yelp(object):
 
         return nearby_hardcoded_place_cats
 
-    def fetch_yelp_locations(self, lat, lng, categories, radius=17):
+    def fetch_yelp_locations(self, lat, lng, categories, radius=30):
         """
         Fetch yelp categories and locations, given a lat and lng location.
 
@@ -161,7 +161,7 @@ class Yelp(object):
 
         return place_category_dict
 
-    def fetch_all_locations(self, lat, lng, categories, distance_threshold=60, radius=17):
+    def fetch_all_locations(self, lat, lng, categories, distance_threshold=60, radius=30):
         """
         Fetch all categories and locations, including hardcoded, given a lat and lng location.
 
