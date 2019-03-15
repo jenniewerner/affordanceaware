@@ -126,6 +126,26 @@ if SUNRISE_SUNSET_TIME_THRESHOLD is None:
 else:
     SUNRISE_SUNSET_TIME_THRESHOLD = float(SUNRISE_SUNSET_TIME_THRESHOLD)
 
+
+# get configuration variables for hardcoded location threshold and yelp query radius
+HARDCODED_LOCATION_DISTANCE_THRESHOLD = environ.get("HARDCODED_LOCATION_DISTANCE_THRESHOLD")
+if HARDCODED_LOCATION_DISTANCE_THRESHOLD is None:
+    # default to 60 meters
+    HARDCODED_LOCATION_DISTANCE_THRESHOLD = 60.0
+    print("HARDCODED_LOCATION_DISTANCE_THRESHOLD not specified. Default to {} minutes.".format(HARDCODED_LOCATION_DISTANCE_THRESHOLD))
+else:
+    HARDCODED_LOCATION_DISTANCE_THRESHOLD = float(HARDCODED_LOCATION_DISTANCE_THRESHOLD)
+
+
+YELP_QUERY_RADIUS = environ.get("YELP_QUERY_RADIUS")
+if YELP_QUERY_RADIUS is None:
+    # default to 30 meters
+    YELP_QUERY_RADIUS = 30.0
+    print("YELP_QUERY_RADIUS not specified. Default to {} minutes.".format(YELP_QUERY_RADIUS))
+else:
+    YELP_QUERY_RADIUS = float(YELP_QUERY_RADIUS)
+
+
 # initialize data cache
 DATA_CACHE = DataCache(MONGODB_URI, "affordance-aware")
 
@@ -304,7 +324,8 @@ def fetch_yelp_data(lat, lng):
     categories = ['grocery', 'trainstations', 'transport', 'bars', 'climbing', 'cafeteria', 'libraries',
                   'religiousorgs', 'sports_clubs', 'fitness']
     place_categories_dict = YELP_API.fetch_all_locations(lat, lng, ','.join(categories),
-                                                         distance_threshold=60, radius=30)
+                                                         distance_threshold=HARDCODED_LOCATION_DISTANCE_THRESHOLD,
+                                                         radius=YELP_QUERY_RADIUS)
 
     #  if request returns None, return empty
     if place_categories_dict is None:
