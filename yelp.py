@@ -139,7 +139,9 @@ class Yelp(object):
 
         # if either response failed, return None
         if yelp_generic_resp.status_code != requests.codes.ok or yelp_specific_resp.status_code != requests.codes.ok:
-            return None
+            print("Yelp Generic Response: \n {}".format(yelp_generic_resp.text))
+            print("Yelp Specific Response: \n {}".format(yelp_specific_resp.text))
+            raise RuntimeError('Yelp API endpoint returned invalid responses (see above)')
 
         # create yelp output
         yelp_businesses = yelp_generic_resp.json()['businesses'] + yelp_specific_resp.json()['businesses']
