@@ -67,6 +67,25 @@ HARDCODED_LOCATION = [
         # ("parks", (42.055037, -87.679631)),              # library and orrington
         # ("parks", (42.057300, -87.679615))               # haven and orrington
 ]
+# get configuration variables for hardcoded location threshold and yelp query radius
+HARDCODED_LOCATION_DISTANCE_THRESHOLD = environ.get("HARDCODED_LOCATION_DISTANCE_THRESHOLD")
+if HARDCODED_LOCATION_DISTANCE_THRESHOLD is None:
+    # default to 60 meters
+    HARDCODED_LOCATION_DISTANCE_THRESHOLD = 60.0
+    print("HARDCODED_LOCATION_DISTANCE_THRESHOLD not specified. Default to {} minutes.".format(HARDCODED_LOCATION_DISTANCE_THRESHOLD))
+else:
+    HARDCODED_LOCATION_DISTANCE_THRESHOLD = float(HARDCODED_LOCATION_DISTANCE_THRESHOLD)
+
+
+YELP_QUERY_RADIUS = environ.get("YELP_QUERY_RADIUS")
+if YELP_QUERY_RADIUS is None:
+    # default to 30 meters
+    YELP_QUERY_RADIUS = 30.0
+    print("YELP_QUERY_RADIUS not specified. Default to {} minutes.".format(YELP_QUERY_RADIUS))
+else:
+    YELP_QUERY_RADIUS = float(YELP_QUERY_RADIUS)
+
+# setup Yelp API with configuration variables
 YELP_API = Yelp(environ.get("YELP_API_KEY"), hardcoded_locations=HARDCODED_LOCATION)
 
 # setup weather API
@@ -125,26 +144,6 @@ if SUNRISE_SUNSET_TIME_THRESHOLD is None:
     print("SUNRISE_SUNSET_TIME_THRESHOLD not specified. Default to {} minutes.".format(SUNRISE_SUNSET_TIME_THRESHOLD))
 else:
     SUNRISE_SUNSET_TIME_THRESHOLD = float(SUNRISE_SUNSET_TIME_THRESHOLD)
-
-
-# get configuration variables for hardcoded location threshold and yelp query radius
-HARDCODED_LOCATION_DISTANCE_THRESHOLD = environ.get("HARDCODED_LOCATION_DISTANCE_THRESHOLD")
-if HARDCODED_LOCATION_DISTANCE_THRESHOLD is None:
-    # default to 60 meters
-    HARDCODED_LOCATION_DISTANCE_THRESHOLD = 60.0
-    print("HARDCODED_LOCATION_DISTANCE_THRESHOLD not specified. Default to {} minutes.".format(HARDCODED_LOCATION_DISTANCE_THRESHOLD))
-else:
-    HARDCODED_LOCATION_DISTANCE_THRESHOLD = float(HARDCODED_LOCATION_DISTANCE_THRESHOLD)
-
-
-YELP_QUERY_RADIUS = environ.get("YELP_QUERY_RADIUS")
-if YELP_QUERY_RADIUS is None:
-    # default to 30 meters
-    YELP_QUERY_RADIUS = 30.0
-    print("YELP_QUERY_RADIUS not specified. Default to {} minutes.".format(YELP_QUERY_RADIUS))
-else:
-    YELP_QUERY_RADIUS = float(YELP_QUERY_RADIUS)
-
 
 # initialize data cache
 DATA_CACHE = DataCache(MONGODB_URI, "affordance-aware")
@@ -211,8 +210,8 @@ def get_current_conditions(lat, lng):
     current_conditions += get_categories_for_location(lat, lng)[0]       # current list of yelp conditions
     current_conditions += get_custom_affordances(current_conditions)[0]  # custom list of affordances
 
-    return current_conditions
-
+    # cleanup before returning
+    return [YELP_API.clean_string(aff) for aff in current_conditions]
 
 def get_current_conditions_as_keyvalues(lat, lng):
     """
@@ -229,13 +228,13 @@ def get_current_conditions_as_keyvalues(lat, lng):
     # custom_affordances = get_custom_affordances(weather_time_affordances[0] + yelp_affordances[0])
 
     curr_conditions = {}
-    curr_conditions.update(weather_time_affordances[1])
-    curr_conditions.update(yelp_affordances[1])
+    curr_conditions.update(weather_time_affordances[1]) # weather/time nested dict
+    curr_conditions.update(yelp_affordances[1]) # yelp nested dict
     # NOTE(rlouie) 3/2/19: not using custom affordances for any experiences
     # curr_conditions.update(custom_affordances[1])
-    curr_conditions = {YELP_API.clean_string(k): v for k, v in curr_conditions.items()}
 
-    return curr_conditions
+    # cleanup before returning
+    return {YELP_API.clean_string(k): v for k, v in curr_conditions.items()}
 
 def get_weather_time_conditions_as_keyvalues(lat, lng):
     """
@@ -249,7 +248,8 @@ def get_weather_time_conditions_as_keyvalues(lat, lng):
     weather_time_affordances = compute_weather_time_affordances(float(lat), float(lng))
     curr_conditions.update(weather_time_affordances[1])
 
-    return curr_conditions
+    # cleanup before returning
+    return {YELP_API.clean_string(k): v for k, v in curr_conditions.items()}
 
 
 def place_categories_dict_as_keyvalues(place_categories_dict):
