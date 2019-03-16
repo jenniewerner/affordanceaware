@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 # application setup
 from os import environ
+import json
 from flask import Flask, jsonify
 from flask_cors import CORS
 
@@ -68,7 +69,7 @@ HARDCODED_LOCATION = [
         # ("parks", (42.057300, -87.679615))               # haven and orrington
 ]
 # get configuration variables for hardcoded location threshold and yelp query radius
-HARDCODED_LOCATION_DISTANCE_THRESHOLD = environ.get("HARDCODED_LOCATION_DISTANCE_THRESHOLD")
+HARDCODED_LOCATION_DISTANCE_THRESHOLD = json.loads(environ.get("HARDCODED_LOCATION_DISTANCE_THRESHOLD"))
 if HARDCODED_LOCATION_DISTANCE_THRESHOLD is None:
     # default to 60 meters
     HARDCODED_LOCATION_DISTANCE_THRESHOLD = 60
@@ -77,7 +78,7 @@ else:
     HARDCODED_LOCATION_DISTANCE_THRESHOLD = int(HARDCODED_LOCATION_DISTANCE_THRESHOLD)
 
 
-YELP_QUERY_RADIUS = environ.get("YELP_QUERY_RADIUS")
+YELP_QUERY_RADIUS = json.loads(environ.get("YELP_QUERY_RADIUS"))
 if YELP_QUERY_RADIUS is None:
     # default to 30 meters
     YELP_QUERY_RADIUS = 30
