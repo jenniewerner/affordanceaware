@@ -69,22 +69,22 @@ HARDCODED_LOCATION = [
         # ("parks", (42.057300, -87.679615))               # haven and orrington
 ]
 # get configuration variables for hardcoded location threshold and yelp query radius
-HARDCODED_LOCATION_DISTANCE_THRESHOLD = json.loads(environ.get("HARDCODED_LOCATION_DISTANCE_THRESHOLD"))
+HARDCODED_LOCATION_DISTANCE_THRESHOLD = environ.get("HARDCODED_LOCATION_DISTANCE_THRESHOLD")
 if HARDCODED_LOCATION_DISTANCE_THRESHOLD is None:
     # default to 60 meters
     HARDCODED_LOCATION_DISTANCE_THRESHOLD = 60
     print("HARDCODED_LOCATION_DISTANCE_THRESHOLD not specified. Default to {} minutes.".format(HARDCODED_LOCATION_DISTANCE_THRESHOLD))
 else:
-    HARDCODED_LOCATION_DISTANCE_THRESHOLD = int(HARDCODED_LOCATION_DISTANCE_THRESHOLD)
+    HARDCODED_LOCATION_DISTANCE_THRESHOLD = int(json.loads(HARDCODED_LOCATION_DISTANCE_THRESHOLD))
 
 
-YELP_QUERY_RADIUS = json.loads(environ.get("YELP_QUERY_RADIUS"))
+YELP_QUERY_RADIUS = environ.get("YELP_QUERY_RADIUS")
 if YELP_QUERY_RADIUS is None:
     # default to 30 meters
     YELP_QUERY_RADIUS = 30
     print("YELP_QUERY_RADIUS not specified. Default to {} minutes.".format(YELP_QUERY_RADIUS))
 else:
-    YELP_QUERY_RADIUS = int(YELP_QUERY_RADIUS)
+    YELP_QUERY_RADIUS = int(json.loads(YELP_QUERY_RADIUS))
 
 # setup Yelp API with configuration variables
 YELP_API = Yelp(environ.get("YELP_API_KEY"), hardcoded_locations=HARDCODED_LOCATION)
@@ -255,21 +255,24 @@ def get_weather_time_conditions_as_keyvalues(lat, lng):
 
 def place_categories_dict_as_keyvalues(place_categories_dict):
     """
-    :param place_categories_dict: [dict] {'bat_17_evanston': ['sandwiches', 'sportsbars'],
-                                          'le_peep_evanston': ['breakfast']}
+    :param place_categories_dict: [dict] {'bat_17_evanston': {'distance': 17.0, 'categories': ['sandwiches', 'sportsbars']},
+                                          'le_peep_evanston': {'distance': 25.0, 'categories': ['breakfast']} }
     :return res: [dict] {
                             'bat_17_evanston': {
                                 'sandwiches': True,
-                                'sportsbars': True
+                                'sportsbars': True,
+                                'distance': 17.0
                              },
                              'le_peep_evanston': {
-                                'breakfast': True
+                                'breakfast': True,
+                                'distance': 25.0
                              }
                         }
     """
     res = {}
-    for place, category_list in place_categories_dict.items():
-        nested_category_dict = {category: True for category in category_list}
+    for place, nested_place_metadata in place_categories_dict.items():
+        nested_category_dict = {category: True for category in nested_place_metadata['categories']}
+        nested_category_dict['distance'] = nested_place_metadata['distance']
         res[place] = nested_category_dict
     return res
 

@@ -107,15 +107,24 @@ class Yelp(object):
         """
         nearby_hardcoded_place_cats = {}
 
-        # TODO(rlouie): hardcoded_locations should look like [..., ({"placename": [affordance]}, (lat,lng)), ...]
         for location in self.hardcoded_locations:
-            place_category_dict = location[0]
+            place_categorylist_dict = location[0]
+            if len(place_categorylist_dict) != 1:
+                raise ValueError(
+                    'element of hardcoded_locations should look like ({"placename": [affordance]}, (lat,lng))')
             curr_location_coords = location[1]
+            if len(curr_location_coords) != 2:
+                raise ValueError(
+                    'element of hardcoded_locations should look like ({"placename": [affordance]}, (lat,lng))')
 
             # add location if within distance_threshold
             dist = vincenty(curr_location_coords, (lat, lng)).meters
             if dist < distance_threshold:
-                nearby_hardcoded_place_cats.update(place_category_dict)
+                for place, categorylist in place_categorylist_dict.items():
+                    nested_place_metadata = {}
+                    nested_place_metadata['categories'] = categorylist
+                    nested_place_metadata['distance'] = dist
+                    nearby_hardcoded_place_cats[place] = nested_place_metadata
 
         return nearby_hardcoded_place_cats
 
@@ -129,8 +138,10 @@ class Yelp(object):
             List of all categories: https://www.yelp.com/developers/documentation/v3/all_category_list
         :param distance_threshold: optional float for how close lat, lng must be to hardcoded location
         :param radius: optional int radius to determine area around lat, lng to query for.
-        :return: categories and locations, cleaned using clean_string, if responses were successful. None otherwise.
-        """
+        :return place_categories_dict: [dict], aliases cleaned using clean_string.
+            {'bat_17_evanston': {'distance': 17.0, 'categories': ['sandwiches', 'sportsbars']},
+             'le_peep_evanston': {'distance': 25.0, 'categories': ['breakfast']} }
+    """
         # attempt to make yelp request
         yelp_generic_resp = self.yelp_search(self.header, lat, lng,
                                              radius=radius, limit=50, term='', categories='')
@@ -159,7 +170,11 @@ class Yelp(object):
             curr_business_categories = [self.clean_string(category['alias']) for category in business['categories']]
 
             print("adding: {} at distance: {} from user".format(curr_business_name, curr_dist))
-            place_category_dict[curr_business_name] = curr_business_categories
+
+            nested_place_metadata = {}
+            nested_place_metadata['categories'] = curr_business_categories
+            nested_place_metadata['distance'] = curr_dist
+            place_category_dict[curr_business_name] = nested_place_metadata
 
         return place_category_dict
 
