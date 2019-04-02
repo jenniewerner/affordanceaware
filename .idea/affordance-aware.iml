@@ -5,7 +5,7 @@
       <excludeFolder url="file://$MODULE_DIR$/.idea" />
       <excludeFolder url="file://$MODULE_DIR$/env" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.7 (affordance-aware-2jrGZpwF)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.7 (affordanceaware-tf1zQI5Q)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="R Skeletons" level="application" />
     <orderEntry type="library" name="R User Library" level="project" />
