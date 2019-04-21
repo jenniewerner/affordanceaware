@@ -38,7 +38,7 @@ HARDCODED_LOCATION = [
         # ("gyms", (42.061293, -87.676620)),
         # ("train_stations", (42.058623, -87.683433)),
         # ("train_stations", (42.019285, -87.673238)),
-        # ("libraries", (42.058141, -87.674490)),
+        ({"nu_mudd_library": ["libraries"]}, (42.058141, -87.674490)),
         # ("field", (42.058364, -87.67089)),               # lakeside field
         # ("field", (42.053160, -87.677064)),              # deering meadow, street side
         # ("field", (42.053311, -87.675788)),              # deering meadow, university side
@@ -49,8 +49,7 @@ HARDCODED_LOCATION = [
         # ("gyms", (42.059575, -87.672667)),               # spac
         # ("gyms", (42.059612, -87.673462)),               # spac
         # ("religious_schools", (42.053232, -87.677212)),
-        # ("libraries", (42.053046, -87.674814)),
-        # ("libraries", (42.053046, -87.674814)),
+        ({"nu_main_library": ["libraries"]}, (42.053046, -87.674814)),
         # ("lakes", (47.671756, -122.344640)),             # greenlake
         # ("lakes", (47.681494, -122.341121)),             # greenlake
         # ("lakes", (47.680194, -122.327946)),             # greenlake
