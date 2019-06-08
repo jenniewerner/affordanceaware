@@ -525,10 +525,14 @@ def period_of_day(current_in_utc, sunrise_in_utc, sunset_in_utc):
     """
     print('period_of_day arguments | current_in_utc: {}, sunrise_in_utc: {}, sunset_in_utc: {}'.format(current_in_utc, sunrise_in_utc, sunset_in_utc))
 
-    if abs(sunset_in_utc - current_in_utc) <= datetime.timedelta(minutes=30):
+    # 1.5 hours before sunset, or 0.5 hours after
+    if ((sunset_in_utc - current_in_utc) <= datetime.timedelta(minutes=90)
+            or (current_in_utc - sunset_in_utc) <= datetime.timedelta(minutes=30)):
         return "sunset"
 
-    if abs(sunrise_in_utc - current_in_utc) <= datetime.timedelta(minutes=30):
+    # 0.5 hours before sunrise, 1.5 hours after sunrise
+    if ((sunrise_in_utc - current_in_utc) <= datetime.timedelta(minutes=30)
+            or (current_in_utc - sunrise_in_utc) <= datetime.timedelta(minutes=90)):
         return "sunrise"
 
     if sunset_in_utc > current_in_utc > sunrise_in_utc:
