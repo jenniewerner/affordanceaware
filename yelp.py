@@ -5,7 +5,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import requests
-from geopy.distance import vincenty
+from geopy.distance import geodesic
 
 
 class Yelp(object):
@@ -118,7 +118,7 @@ class Yelp(object):
                     'element of hardcoded_locations should look like ({"placename": [affordance]}, (lat,lng))')
 
             # add location if within distance_threshold
-            dist = vincenty(curr_location_coords, (lat, lng)).meters
+            dist = geodesic(curr_location_coords, (lat, lng)).meters
             if dist < distance_threshold:
                 for place, categorylist in place_categorylist_dict.items():
                     nested_place_metadata = {}
