@@ -1,6 +1,6 @@
 import datetime
 from pymongo import MongoClient, GEO2D
-from geopy.distance import vincenty
+from geopy.distance import geodesic
 
 
 class DataCache(object):
@@ -51,7 +51,7 @@ class DataCache(object):
         if nearest_cached_loc is not None:
             # compute distance to nearest cached object
             nearest_cached_loc_location = (nearest_cached_loc['location'][1], nearest_cached_loc['location'][0])
-            dist_to_nearest = vincenty(nearest_cached_loc_location, (lat, lng)).meters
+            dist_to_nearest = geodesic(nearest_cached_loc_location, (lat, lng)).meters
 
             # compute time diff between cached object and current time
             current_date = datetime.datetime.utcnow()

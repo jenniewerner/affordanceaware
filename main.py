@@ -1,7 +1,5 @@
-from __future__ import print_function
-from __future__ import absolute_import
-
 # application setup
+
 from os import environ
 import json
 from flask import Flask, jsonify

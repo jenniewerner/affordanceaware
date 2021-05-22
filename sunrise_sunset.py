@@ -1,9 +1,6 @@
 """
 This module is a class wrapper for the sunrise-sunset API
 """
-from __future__ import print_function
-from __future__ import absolute_import
-
 import requests
 
 

@@ -1,9 +1,6 @@
 """
 This module is a class wrapper for the OpenWeatherMap API and time-based affordances.
 """
-from __future__ import print_function
-from __future__ import absolute_import
-
 import requests
 
 

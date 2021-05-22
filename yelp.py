@@ -1,11 +1,8 @@
 """
 This module is a class wrapper for the Yelp API.
 """
-from __future__ import print_function
-from __future__ import absolute_import
-
 import requests
-from geopy.distance import vincenty
+from geopy.distance import geodesic
 
 
 class Yelp(object):
@@ -42,7 +39,7 @@ class Yelp(object):
         :return: dict header for request.
         """
         return {
-           'Authorization': 'Bearer {}'.format(key),
+           'Authorization': 'Bearer {}'.format(key.strip()),
            'content-type': 'application/x-www-form-urlencoded; charset=utf-8',
            'User-Agent': 'Mdx/3.8 (iPhone; iOS 10.2; Scale/3.00)'
         }
@@ -118,7 +115,7 @@ class Yelp(object):
                     'element of hardcoded_locations should look like ({"placename": [affordance]}, (lat,lng))')
 
             # add location if within distance_threshold
-            dist = vincenty(curr_location_coords, (lat, lng)).meters
+            dist = geodesic(curr_location_coords, (lat, lng)).meters
             if dist < distance_threshold:
                 for place, categorylist in place_categorylist_dict.items():
                     nested_place_metadata = {}
@@ -145,6 +142,7 @@ class Yelp(object):
         # attempt to make yelp request
         yelp_generic_resp = self.yelp_search(self.header, lat, lng,
                                              radius=radius, limit=50, term='', categories='')
+
         yelp_specific_resp = self.yelp_search(self.header, lat, lng,
                                               radius=radius, limit=50, term='', categories=categories)
 
