@@ -28,7 +28,8 @@ HARDCODED_LOCATION = [
         ({"lakefill_southtip_evanston": ["parks", "lakes"]}, (42.052460, -87.669876)),
         ({"lakefill_middle": ["lakefill"]}, (42.05526993946647, -87.67085351697622)),
         ({"nu_weber_arch": ["thearch"]}, (42.05140977878525, -87.67709028194925)),
-        ({"norris_university_center": ["norris"]}, (42.05340447417977, -87.67268330208677))
+        ({"norris_university_center": ["norris"]}, (42.05340447417977, -87.67268330208677)),
+        ({"secret_base_testing": ["secret_base"]}, (42.04329086478451, -87.68102300188055))
         # ("hackerspace", (42.056929, -87.676694)),
         # ("end_of_f_wing", (42.057472, -87.67662)),
         # ("atrium", (42.057323, -87.676164)),
